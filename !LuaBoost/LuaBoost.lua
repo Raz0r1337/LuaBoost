@@ -209,8 +209,9 @@ local defaults = {
     preset                 = "mid",
     debugMode              = false,
 
-    interceptGC            = true,
-    blockMemoryUsage       = true,
+    -- Protection (OFF by default — prevents taint with ElvUI/secure frames)
+    interceptGC            = false,
+    blockMemoryUsage       = false,
     memoryUsageMinInterval = 1,
 
     speedyLoadEnabled      = false,
@@ -421,12 +422,11 @@ gcFrame:SetScript("OnUpdate", function()
         DebugMsg("Idle mode activated")
     end
 
-    -- Periodic: re-stop GC + re-apply protection hooks
+    -- Periodic: re-stop GC (protection hooks applied only on toggle, not periodically)
     gcReStopCounter = gcReStopCounter + 1
     if gcReStopCounter >= 300 then
         gcReStopCounter = 0
         orig_collectgarbage("stop")
-        ApplyProtectionHooks()
     end
 
     -- Emergency full GC (not in combat, not loading)
@@ -494,6 +494,40 @@ combatFrame:SetScript("OnEvent", function(self, event)
             end
         end
     end
+end)
+
+-- ================================================================
+-- GC Burst on heavy events (LFG popup, achievements, etc.)
+-- Prevents lag spikes from sudden Lua garbage bursts in combat
+-- ================================================================
+local burstFrame = CreateFrame("Frame")
+local burstEvents = {
+    "LFG_PROPOSAL_SHOW",           -- dungeon queue popup
+    "LFG_PROPOSAL_SUCCEEDED",      -- accepted, about to teleport
+    "LFG_COMPLETION_REWARD",       -- dungeon complete reward
+    "ACHIEVEMENT_EARNED",          -- achievement popup
+    "CHAT_MSG_LOOT",               -- loot spam in raid
+    "ENCOUNTER_END",               -- boss killed
+}
+for _, ev in orig_ipairs(burstEvents) do
+    burstFrame:RegisterEvent(ev)
+end
+
+burstFrame:SetScript("OnEvent", function(self, event)
+    if not db or not db.enabled then return end
+
+    -- Moderate GC burst: bigger than combat step, smaller than full collect
+    local burstKB = 128
+
+    DebugMsg(orig_format("GC burst: %s (step %d KB)", event, burstKB))
+
+    if hasDLL() and LuaBoostC_GCStep then
+        LuaBoostC_GCStep(burstKB)
+    else
+        orig_collectgarbage("step", burstKB)
+    end
+
+    gcStats.stepsLua = gcStats.stepsLua + 1
 end)
 
 -- Activity tracking (idle reset)
@@ -1125,15 +1159,19 @@ panelTools:SetScript("OnShow", function(self)
         function(v) db.debugMode = v end
     )
 
-    Checkbox(self, "Intercept collectgarbage() calls",
-        "Blocks full GC calls triggered by other addons.\nDisable if you see taint warnings.",
+        Checkbox(self, "Intercept collectgarbage() calls",
+        "Blocks full GC calls triggered by other addons.\n"
+        .. "|cffff4444WARNING:|r Causes taint with ElvUI and secure frames.\n"
+        .. "Leave OFF if you see 'action blocked' errors.",
         14, -66,
         function() return db.interceptGC end,
         function(v) db.interceptGC = v and true or false; ApplyProtectionHooks() end
     )
 
     Checkbox(self, "Block UpdateAddOnMemoryUsage()",
-        "Blocks heavy addon memory scans.\nDisable if you see taint warnings.",
+        "Blocks heavy addon memory scans.\n"
+        .. "|cffff4444WARNING:|r Causes taint with ElvUI and secure frames.\n"
+        .. "Leave OFF if you see 'action blocked' errors.",
         14, -92,
         function() return db.blockMemoryUsage end,
         function(v) db.blockMemoryUsage = v and true or false; ApplyProtectionHooks() end
@@ -1199,6 +1237,7 @@ panelTools:SetScript("OnShow", function(self)
 end)
 
 InterfaceOptions_AddCategory(panelTools)
+
 
 -- ================================================================
 -- PART F: Slash Commands
