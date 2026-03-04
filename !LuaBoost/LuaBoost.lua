@@ -1,9 +1,9 @@
 -- ================================================================
---  LuaBoost v1.1.0 — WoW 3.3.5a Lua Runtime Optimizer
+--  LuaBoost v1.2.0 — WoW 3.3.5a Lua Runtime Optimizer
 --  Author: Suprematist
 --
 --  Features:
---   - Faster math.floor/ceil/abs (pure Lua)
+--   - Faster math.floor/ceil/abs (pure Lua, auto-detect)
 --   - Faster table.insert append path
 --   - Per-frame GetTimeCached()
 --   - Shared throttle API, table pool
@@ -11,13 +11,18 @@
 --   - SpeedyLoad: event suppression during loading screens
 --   - Optional protection hooks (intercept GC, block memory scans)
 --   - DLL integration (wow_optimize.dll v1.2+)
+--
+--  v1.2.0 changes:
+--   - Auto-detect math optimizations (bench on first run, cache result)
+--   - Fixed benchmark output (shows "faster" or "slower" correctly)
+--   - Expanded UI slider ranges for heavy addon setups
 -- ================================================================
 
 if _G.LUABOOST_LOADED then return end
 _G.LUABOOST_LOADED = true
 
 local ADDON_NAME    = "LuaBoost"
-local ADDON_VERSION = "1.1.0"
+local ADDON_VERSION = "1.2.0"
 local ADDON_COLOR   = "|cff00ccff"
 local VALUE_COLOR   = "|cffffff00"
 
@@ -73,7 +78,7 @@ function _G.GetFrameNumber()
     return frameNumber
 end
 
--- A2. Faster math functions
+-- A2. Faster math functions (applied eagerly; may be reverted by auto-detect)
 local function fast_floor(x) return x - x % 1 end
 
 local function fast_ceil(x)
@@ -87,9 +92,117 @@ local function fast_abs(x)
     return x
 end
 
+-- Apply fast versions immediately (will be adjusted after DB loads)
 math.floor = fast_floor
 math.ceil  = fast_ceil
 math.abs   = fast_abs
+
+-- A2b. Math auto-detect: apply stored choices from SavedVariables
+local function ApplyMathChoices()
+    -- Called after db is available. Reverts to original if bench showed fast is slower.
+    if not db then return end
+
+    if db.mathUseFloor then
+        math.floor = fast_floor
+    else
+        math.floor = orig_floor
+    end
+
+    if db.mathUseCeil then
+        math.ceil = fast_ceil
+    else
+        math.ceil = orig_ceil
+    end
+
+    if db.mathUseAbs then
+        math.abs = fast_abs
+    else
+        math.abs = orig_abs
+    end
+end
+
+-- Forward declaration (db defined later)
+local db
+
+-- A2c. Math auto-detect benchmark
+local MATH_BENCH_N = 200000
+local MATH_BENCH_TOLERANCE = 1.05  -- keep fast if within 5% of original
+
+local function RunMathAutoDetect(silent)
+    if not db then return end
+
+    local N = MATH_BENCH_N
+    local dummy = 0
+
+    -- Warmup
+    for i = 1, 5000 do dummy = orig_floor(i * 1.7) end
+    for i = 1, 5000 do dummy = fast_floor(i * 1.7) end
+    for i = 1, 5000 do dummy = orig_ceil(i * 1.3) end
+    for i = 1, 5000 do dummy = fast_ceil(i * 1.3) end
+    for i = 1, 5000 do dummy = orig_abs(i * -1.5) end
+    for i = 1, 5000 do dummy = fast_abs(i * -1.5) end
+
+    -- Floor
+    debugprofilestart()
+    for i = 1, N do dummy = orig_floor(i * 1.7) end
+    local floor_orig_t = debugprofilestop()
+
+    debugprofilestart()
+    for i = 1, N do dummy = fast_floor(i * 1.7) end
+    local floor_fast_t = debugprofilestop()
+
+    -- Ceil
+    debugprofilestart()
+    for i = 1, N do dummy = orig_ceil(i * 1.3) end
+    local ceil_orig_t = debugprofilestop()
+
+    debugprofilestart()
+    for i = 1, N do dummy = fast_ceil(i * 1.3) end
+    local ceil_fast_t = debugprofilestop()
+
+    -- Abs
+    debugprofilestart()
+    for i = 1, N do dummy = orig_abs(i * -1.5) end
+    local abs_orig_t = debugprofilestop()
+
+    debugprofilestart()
+    for i = 1, N do dummy = fast_abs(i * -1.5) end
+    local abs_fast_t = debugprofilestop()
+
+    -- Decide: use fast unless it's >5% slower than original
+    db.mathUseFloor = (floor_fast_t <= floor_orig_t * MATH_BENCH_TOLERANCE)
+    db.mathUseCeil  = (ceil_fast_t  <= ceil_orig_t  * MATH_BENCH_TOLERANCE)
+    db.mathUseAbs   = (abs_fast_t   <= abs_orig_t   * MATH_BENCH_TOLERANCE)
+    db.mathBenchDone = true
+
+    ApplyMathChoices()
+
+    -- Report
+    if not silent then
+        local function tag(use, fast_t, orig_t)
+            if use then
+                return "|cff44ff44fast|r"
+            else
+                return orig_format("|cffff4444original|r (fast was %.0f%% slower)",
+                    ((fast_t / orig_t) - 1) * 100)
+            end
+        end
+
+        orig_print(ADDON_COLOR .. "[LuaBoost]|r Math auto-detect results (" .. N .. " iterations):")
+        orig_print(orig_format("  math.floor: orig %6.1f ms, fast %6.1f ms > %s",
+            floor_orig_t, floor_fast_t, tag(db.mathUseFloor, floor_fast_t, floor_orig_t)))
+        orig_print(orig_format("  math.ceil:  orig %6.1f ms, fast %6.1f ms > %s",
+            ceil_orig_t, ceil_fast_t, tag(db.mathUseCeil, ceil_fast_t, ceil_orig_t)))
+        orig_print(orig_format("  math.abs:   orig %6.1f ms, fast %6.1f ms > %s",
+            abs_orig_t, abs_fast_t, tag(db.mathUseAbs, abs_fast_t, abs_orig_t)))
+
+        local count = 0
+        if db.mathUseFloor then count = count + 1 end
+        if db.mathUseCeil  then count = count + 1 end
+        if db.mathUseAbs   then count = count + 1 end
+        orig_print(orig_format("  Using fast versions for %d/3 functions. Saved to settings.", count))
+    end
+end
 
 -- A3. Faster table.insert for append pattern
 local function fast_tinsert(t, pos, value)
@@ -200,11 +313,11 @@ end
 
 local defaults = {
     enabled                = true,
-    frameStepKB            = 30,
-    combatStepKB           = 10,
-    idleStepKB             = 100,
-    loadingStepKB          = 200,
-    fullCollectThresholdMB = 80,
+    frameStepKB            = 50,        
+    combatStepKB           = 15,        
+    idleStepKB             = 150,       
+    loadingStepKB          = 300,       
+    fullCollectThresholdMB = 300,       
     idleTimeout            = 15,
     preset                 = "mid",
     debugMode              = false,
@@ -216,36 +329,49 @@ local defaults = {
 
     speedyLoadEnabled      = false,
     speedyLoadMode         = "safe",
+
+    -- Math auto-detect (v1.2.0)
+    mathAutoDetect         = true,
+    mathBenchDone          = false,
+    mathUseFloor           = true,
+    mathUseCeil            = true,
+    mathUseAbs             = true,
 }
 
 local presets = {
+    -- Light addon setup: minimal GC overhead, low CPU cost per frame
+    -- Good for: few addons, no WeakAuras, simple UI
     weak = {
-        frameStepKB            = 50,
+        frameStepKB            = 20,        
         combatStepKB           = 5,
-        idleStepKB             = 150,
-        loadingStepKB          = 250,
-        fullCollectThresholdMB = 50,
-        idleTimeout            = 10,
+        idleStepKB             = 80,        
+        loadingStepKB          = 150,       
+        fullCollectThresholdMB = 150,       
+        idleTimeout            = 15,        
     },
+    -- Balanced: works for most players with moderate addon setups
+    -- Good for: DBM or BigWigs + one damage meter + some UI addons
     mid = {
-        frameStepKB            = 30,
-        combatStepKB           = 10,
-        idleStepKB             = 100,
-        loadingStepKB          = 200,
-        fullCollectThresholdMB = 80,
+        frameStepKB            = 50,        
+        combatStepKB           = 15,        
+        idleStepKB             = 150,       
+        loadingStepKB          = 300,       
+        fullCollectThresholdMB = 300,       
         idleTimeout            = 15,
     },
+    -- Heavy addon setup: aggressive cleanup, prevents post-boss freezes
+    -- Good for: DBM + WeakAuras + Skada + nameplates + everything
     strong = {
-        frameStepKB            = 20,
-        combatStepKB           = 15,
-        idleStepKB             = 200,
-        loadingStepKB          = 300,
-        fullCollectThresholdMB = 120,
+        frameStepKB            = 100,       
+        combatStepKB           = 30,        
+        idleStepKB             = 300,       
+        loadingStepKB          = 500,      
+        fullCollectThresholdMB = 500,      
         idleTimeout            = 20,
     },
 }
 
-local db
+-- db forward-declared above (local db)
 
 local inCombat     = false
 local isIdle       = false
@@ -291,6 +417,9 @@ local function InitDB()
     end
 
     db = LuaBoostDB
+
+    -- Apply stored math choices immediately
+    ApplyMathChoices()
 end
 
 local function ApplyPreset(name)
@@ -422,7 +551,7 @@ gcFrame:SetScript("OnUpdate", function()
         DebugMsg("Idle mode activated")
     end
 
-    -- Periodic: re-stop GC (protection hooks applied only on toggle, not periodically)
+    -- Periodic: re-stop GC
     gcReStopCounter = gcReStopCounter + 1
     if gcReStopCounter >= 300 then
         gcReStopCounter = 0
@@ -497,17 +626,16 @@ combatFrame:SetScript("OnEvent", function(self, event)
 end)
 
 -- ================================================================
--- GC Burst on heavy events (LFG popup, achievements, etc.)
--- Prevents lag spikes from sudden Lua garbage bursts in combat
+-- GC Burst on heavy events
 -- ================================================================
 local burstFrame = CreateFrame("Frame")
 local burstEvents = {
-    "LFG_PROPOSAL_SHOW",           -- dungeon queue popup
-    "LFG_PROPOSAL_SUCCEEDED",      -- accepted, about to teleport
-    "LFG_COMPLETION_REWARD",       -- dungeon complete reward
-    "ACHIEVEMENT_EARNED",          -- achievement popup
-    "CHAT_MSG_LOOT",               -- loot spam in raid
-    "ENCOUNTER_END",               -- boss killed
+    "LFG_PROPOSAL_SHOW",
+    "LFG_PROPOSAL_SUCCEEDED",
+    "LFG_COMPLETION_REWARD",
+    "ACHIEVEMENT_EARNED",
+    "CHAT_MSG_LOOT",
+    "ENCOUNTER_END",
 }
 for _, ev in orig_ipairs(burstEvents) do
     burstFrame:RegisterEvent(ev)
@@ -516,7 +644,6 @@ end
 burstFrame:SetScript("OnEvent", function(self, event)
     if not db or not db.enabled then return end
 
-    -- Moderate GC burst: bigger than combat step, smaller than full collect
     local burstKB = 128
 
     DebugMsg(orig_format("GC burst: %s (step %d KB)", event, burstKB))
@@ -551,14 +678,8 @@ end)
 
 -- ================================================================
 -- PART C: SpeedyLoad — Event Suppression During Loading Screens
---
--- Approach from KPack/SpeedyLoad (Kader):
---   Uses GetFramesRegisteredForEvent() to target specific frames.
---   Hooks UnregisterEvent to track removals during loading.
---   Replays events that fired during loading after restore.
 -- ================================================================
 
--- Safe events: cosmetic, never cause issues
 local SPEEDY_SAFE_EVENTS = {
     "SPELLS_CHANGED",
     "SPELL_UPDATE_USABLE",
@@ -573,7 +694,6 @@ local SPEEDY_SAFE_EVENTS = {
     "RECEIVED_ACHIEVEMENT_LIST",
 }
 
--- Aggressive: includes more actionbar/inventory/aura events
 local SPEEDY_AGGRESSIVE_EVENTS = {}
 do
     local safe = SPEEDY_SAFE_EVENTS
@@ -599,17 +719,14 @@ do
     end
 end
 
--- SpeedyLoad state
-local speedyTracked    = {}     -- { [event] = { [frame] = 1 } }
-local speedyOccurred   = {}     -- { [event] = true }
+local speedyTracked    = {}
+local speedyOccurred   = {}
 local speedySuppressed = false
 local speedyListenUnreg = false
 local speedyHooked     = false
 
--- Frame that "catches" tracked events during loading
 local speedyFrame = hasGetFramesForEvent and CreateFrame("Frame") or nil
 
--- Cache of validated UnregisterEvent functions
 local speedyValidUnreg = {}
 if speedyFrame then
     speedyValidUnreg[speedyFrame.UnregisterEvent] = true
@@ -625,7 +742,6 @@ end
 local function SpeedyLoad_Suppress()
     if not hasGetFramesForEvent or not speedyFrame then return 0 end
 
-    -- Build tracking table for current event list
     for k in orig_pairs(speedyTracked) do speedyTracked[k] = nil end
     orig_wipe(speedyOccurred)
 
@@ -637,7 +753,6 @@ local function SpeedyLoad_Suppress()
     local count = 0
 
     for event, frames in orig_pairs(speedyTracked) do
-        -- Unregister all other frames from this event
         for i = 1, orig_select("#", orig_GetFramesForEvent(event)) do
             local frame = orig_select(i, orig_GetFramesForEvent(event))
             if frame and frame ~= speedyFrame then
@@ -649,7 +764,6 @@ local function SpeedyLoad_Suppress()
                 end
             end
         end
-        -- Register on our frame to detect if event fires during loading
         speedyFrame:RegisterEvent(event)
     end
 
@@ -667,7 +781,6 @@ local function SpeedyLoad_Restore()
     local count = 0
 
     for event, frames in orig_pairs(speedyTracked) do
-        -- Stop listening on our frame
         if speedyFrame then
             orig_pcall(speedyFrame.UnregisterEvent, speedyFrame, event)
         end
@@ -676,7 +789,6 @@ local function SpeedyLoad_Restore()
             orig_pcall(frame.RegisterEvent, frame, event)
             count = count + 1
 
-            -- Replay event if it occurred during loading
             if speedyOccurred[event] then
                 local OnEvent = frame:GetScript("OnEvent")
                 if OnEvent then
@@ -695,7 +807,6 @@ local function SpeedyLoad_Restore()
     return count
 end
 
--- SpeedyLoad frame catches tracked events during loading
 if speedyFrame then
     speedyFrame:SetScript("OnEvent", function(self, event)
         if speedyTracked[event] then
@@ -705,9 +816,6 @@ if speedyFrame then
     end)
 end
 
--- Hook UnregisterEvent on Frame metatable
--- If an addon unregisters from a tracked event during loading,
--- we remove it from our tracking (so we don't re-register it)
 local function SpeedyLoad_HookUnregister()
     if speedyHooked or not speedyFrame then return end
 
@@ -731,8 +839,6 @@ local function SpeedyLoad_HookUnregister()
     end
 end
 
--- Ensure our PLAYER_ENTERING_WORLD handler fires first
--- (unregister from all, register ours, re-register others)
 local loadFrame -- forward declaration
 
 local function SpeedyLoad_EnsurePriority()
@@ -743,17 +849,14 @@ local function SpeedyLoad_EnsurePriority()
         orig_pcall(frames[i].UnregisterEvent, frames[i], "PLAYER_ENTERING_WORLD")
     end
 
-    -- Register ours first
     loadFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-    -- Re-register others after ours
     for i = 1, #frames do
         if frames[i] ~= loadFrame then
             orig_pcall(frames[i].RegisterEvent, frames[i], "PLAYER_ENTERING_WORLD")
         end
     end
 
-    -- Blizzard bug: PetStableFrame shouldn't listen to SPELLS_CHANGED
     if PetStableFrame then
         orig_pcall(PetStableFrame.UnregisterEvent, PetStableFrame, "SPELLS_CHANGED")
     end
@@ -763,7 +866,6 @@ end
 
 -- ================================================================
 -- Loading state frame
--- Manages isLoading + triggers SpeedyLoad suppress/restore
 -- ================================================================
 loadFrame = CreateFrame("Frame")
 loadFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
@@ -783,14 +885,12 @@ loadFrame:SetScript("OnEvent", function(self, event)
         end
 
     elseif event == "LOADING_SCREEN_ENABLED" then
-        -- Safety: set loading state if PLAYER_LEAVING_WORLD didn't fire
         if not isLoading then
             isLoading = true
             WriteLoadingGlobal()
         end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
-        -- Restore suppressed events (must happen before other addons process this event)
         if speedySuppressed then
             local n = SpeedyLoad_Restore()
             DebugMsg(orig_format("SpeedyLoad: restored %d registrations", n))
@@ -801,7 +901,6 @@ loadFrame:SetScript("OnEvent", function(self, event)
         lastActivity = orig_GetTime()
         if isIdle then isIdle = false; WriteIdleGlobal() end
 
-        -- Post-loading full GC
         if db and db.enabled then
             if hasDLL() and LuaBoostC_GCCollect then
                 LuaBoostC_GCCollect()
@@ -814,7 +913,6 @@ loadFrame:SetScript("OnEvent", function(self, event)
         end
 
     elseif event == "LOADING_SCREEN_DISABLED" then
-        -- Safety: restore if PLAYER_ENTERING_WORLD hasn't fired yet
         if speedySuppressed then
             local n = SpeedyLoad_Restore()
             DebugMsg(orig_format("SpeedyLoad: restored %d registrations (fallback)", n))
@@ -843,6 +941,23 @@ end)
 -- ================================================================
 -- PART D: Benchmark
 -- ================================================================
+
+-- [v1.2.0] Correct faster/slower formatting
+local function FormatBenchLine(label, orig_t, fast_t, suffix)
+    suffix = suffix or ""
+    if orig_t <= 0 then
+        return orig_format("  %-14s %7.1f ms -> %7.1f ms%s", label, orig_t, fast_t, suffix)
+    end
+    local p = (1 - fast_t / orig_t) * 100
+    if p >= 0 then
+        return orig_format("  %-14s %7.1f ms -> %7.1f ms  (|cff44ff44%.0f%% faster|r)%s",
+            label, orig_t, fast_t, p, suffix)
+    else
+        return orig_format("  %-14s %7.1f ms -> %7.1f ms  (|cffff4444%.0f%% slower|r)%s",
+            label, orig_t, fast_t, -p, suffix)
+    end
+end
+
 local function RunBenchmark()
     local N = 1000000
     local dummy = 0
@@ -884,20 +999,19 @@ local function RunBenchmark()
     for i = 1, K do benchTable[#benchTable + 1] = i end
     local insert_fast = debugprofilestop()
 
-    local function pct(a, b)
-        if a > 0 then return (1 - b / a) * 100 end
-        return 0
+    -- [v1.2.0] Show active status for each math function
+    local function activeTag(use)
+        if use then return " |cff44ff44[active]|r" else return " |cff888888[original]|r" end
     end
 
     orig_print(ADDON_COLOR .. "[LuaBoost]|r Results (lower ms = better):")
-    orig_print(orig_format("  math.floor:   %7.1f ms -> %7.1f ms  (%.0f%% faster)",
-        floor_orig, floor_fast, pct(floor_orig, floor_fast)))
-    orig_print(orig_format("  math.ceil:    %7.1f ms -> %7.1f ms  (%.0f%% faster)",
-        ceil_orig, ceil_fast, pct(ceil_orig, ceil_fast)))
-    orig_print(orig_format("  math.abs:     %7.1f ms -> %7.1f ms  (%.0f%% faster)",
-        abs_orig, abs_fast, pct(abs_orig, abs_fast)))
-    orig_print(orig_format("  table.insert: %7.1f ms -> %7.1f ms  (%.0f%% faster) (100k)",
-        insert_orig, insert_fast, pct(insert_orig, insert_fast)))
+    orig_print(FormatBenchLine("math.floor:",   floor_orig,  floor_fast,
+        db and activeTag(db.mathUseFloor) or ""))
+    orig_print(FormatBenchLine("math.ceil:",    ceil_orig,   ceil_fast,
+        db and activeTag(db.mathUseCeil) or ""))
+    orig_print(FormatBenchLine("math.abs:",     abs_orig,    abs_fast,
+        db and activeTag(db.mathUseAbs) or ""))
+    orig_print(FormatBenchLine("table.insert:", insert_orig, insert_fast, " (100k)"))
 end
 
 -- ================================================================
@@ -1105,34 +1219,43 @@ panelSettings:SetScript("OnShow", function(self)
 
     Label(self, "Step Sizes (KB collected per frame)", 16, -56, "GameFontNormal")
 
-    Slider(self, "Normal Step", "GC per frame during normal gameplay.", 20, -86, 1, 200, 5,
+    -- [v1.2.0] Expanded slider ranges for heavy addon setups
+    Slider(self, "Normal Step", "GC per frame during normal gameplay.", 20, -86,
+        1, 500, 5,                                                          -- was 1-200
         function() return db.frameStepKB end,
         function(v) db.frameStepKB = v; db.preset = "custom" end
     )
 
-    Slider(self, "Combat Step", "GC per frame in combat (keep low to protect frametime).", 20, -138, 0, 50, 1,
+    Slider(self, "Combat Step", "GC per frame in combat (keep low to protect frametime).", 20, -138,
+        0, 100, 1,                                                          -- was 0-50
         function() return db.combatStepKB end,
         function(v) db.combatStepKB = v; db.preset = "custom" end
     )
 
-    Slider(self, "Idle Step", "GC per frame while AFK/idle.", 20, -190, 10, 500, 10,
+    Slider(self, "Idle Step", "GC per frame while AFK/idle.", 20, -190,
+        10, 1000, 10,                                                       -- was 10-500
         function() return db.idleStepKB end,
         function(v) db.idleStepKB = v; db.preset = "custom" end
     )
 
-    Slider(self, "Loading Step", "GC per frame during loading screens (no rendering).", 20, -242, 50, 500, 25,
+    Slider(self, "Loading Step", "GC per frame during loading screens (no rendering).", 20, -242,
+        50, 1000, 25,                                                       -- was 50-500
         function() return db.loadingStepKB end,
         function(v) db.loadingStepKB = v; db.preset = "custom" end
     )
 
     Label(self, "Thresholds", 16, -296, "GameFontNormal")
 
-    Slider(self, "Emergency Full GC (MB)", "Force full GC outside combat when memory exceeds this.", 20, -326, 20, 300, 10,
+    Slider(self, "Emergency Full GC (MB)",
+        "Force full GC outside combat when memory exceeds this.\n"
+        .. "Set higher (300-500+) if you use many addons to avoid long freezes.", 20, -326,
+        20, 1000, 10,                                                       -- was 20-300
         function() return db.fullCollectThresholdMB end,
         function(v) db.fullCollectThresholdMB = v; db.preset = "custom" end
     )
 
-    Slider(self, "Idle Timeout (sec)", "Seconds without activity before idle mode.", 20, -378, 5, 120, 5,
+    Slider(self, "Idle Timeout (sec)", "Seconds without activity before idle mode.", 20, -378,
+        5, 120, 5,
         function() return db.idleTimeout end,
         function(v) db.idleTimeout = v end
     )
@@ -1159,7 +1282,7 @@ panelTools:SetScript("OnShow", function(self)
         function(v) db.debugMode = v end
     )
 
-        Checkbox(self, "Intercept collectgarbage() calls",
+    Checkbox(self, "Intercept collectgarbage() calls",
         "Blocks full GC calls triggered by other addons.\n"
         .. "|cffff4444WARNING:|r Causes taint with ElvUI and secure frames.\n"
         .. "Leave OFF if you see 'action blocked' errors.",
@@ -1177,7 +1300,8 @@ panelTools:SetScript("OnShow", function(self)
         function(v) db.blockMemoryUsage = v and true or false; ApplyProtectionHooks() end
     )
 
-    Slider(self, "MemUsage Min Interval (sec)", "Minimum interval between UpdateAddOnMemoryUsage() calls.", 20, -132, 0, 10, 1,
+    Slider(self, "MemUsage Min Interval (sec)", "Minimum interval between UpdateAddOnMemoryUsage() calls.", 20, -132,
+        0, 10, 1,
         function() return db.memoryUsageMinInterval end,
         function(v) db.memoryUsageMinInterval = v end
     )
@@ -1221,7 +1345,7 @@ panelTools:SetScript("OnShow", function(self)
     resetBtn:SetText("Reset All to Defaults")
     resetBtn:SetScript("OnClick", function()
         StaticPopupDialogs["LUABOOST_RESET"] = {
-            text = "Reset all LuaBoost settings to defaults?",
+            text = "Reset all LuaBoost settings to defaults?\n(Math auto-detect will re-run on next login)",
             button1 = "Yes", button2 = "No",
             OnAccept = function()
                 LuaBoostDB = nil
@@ -1234,6 +1358,57 @@ panelTools:SetScript("OnShow", function(self)
         }
         StaticPopup_Show("LUABOOST_RESET")
     end)
+
+    -- [v1.2.0] Math auto-detect section
+    Label(self, "Math Optimizations", 16, -268, "GameFontNormal")
+
+    local mathStatusLabel = Label(self, "", 16, -288, "GameFontHighlightSmall")
+    mathStatusLabel:SetWidth(500)
+
+    local function UpdateMathStatus()
+        if not db then return end
+        local function fn_status(use, name)
+            if use then return "|cff44ff44fast|r" else return "|cff888888original|r" end
+        end
+        local benchTag = db.mathBenchDone and "|cff44ff44done|r" or "|cffffff44pending|r"
+        mathStatusLabel:SetText(orig_format(
+            "floor: %s  |  ceil: %s  |  abs: %s  |  bench: %s",
+            fn_status(db.mathUseFloor, "floor"),
+            fn_status(db.mathUseCeil, "ceil"),
+            fn_status(db.mathUseAbs, "abs"),
+            benchTag
+        ))
+    end
+
+    Checkbox(self, "Auto-detect math on first run",
+        "Runs a quick micro-benchmark on first login to determine\n"
+        .. "whether fast math replacements are actually faster on your CPU.\n"
+        .. "Result is saved — bench only runs once.",
+        14, -304,
+        function() return db.mathAutoDetect end,
+        function(v) db.mathAutoDetect = v end
+    )
+
+    local mathBenchBtn = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
+    mathBenchBtn:SetSize(170, 22)
+    mathBenchBtn:SetPoint("TOPLEFT", 16, -332)
+    mathBenchBtn:SetText("Re-run Math Auto-detect")
+    mathBenchBtn:SetScript("OnClick", function()
+        db.mathBenchDone = false
+        RunMathAutoDetect(false)
+        UpdateMathStatus()
+        RefreshAllControls()
+    end)
+
+    -- Initial update
+    UpdateMathStatus()
+
+    -- Refresh math status when panel shows
+    local origRefresh = self.Refresh
+    function self:Refresh()
+        if origRefresh then origRefresh(self) end
+        UpdateMathStatus()
+    end
 end)
 
 InterfaceOptions_AddCategory(panelTools)
@@ -1255,6 +1430,14 @@ local function ShowStatus()
             db.speedyLoadEnabled and "|cff00ff00ON|r" or "|cffaaaaaaOFF|r",
             db.speedyLoadMode,
             #GetSpeedyEventList()))
+        -- [v1.2.0] Math status
+        local mathCount = 0
+        if db.mathUseFloor then mathCount = mathCount + 1 end
+        if db.mathUseCeil  then mathCount = mathCount + 1 end
+        if db.mathUseAbs   then mathCount = mathCount + 1 end
+        orig_print(orig_format("  Math: %d/3 fast | bench: %s",
+            mathCount,
+            db.mathBenchDone and "done" or "pending"))
     end
     if hasDLL() then
         orig_print("  wow_optimize.dll: |cff00ff00CONNECTED|r")
@@ -1331,6 +1514,25 @@ SlashCmdList["LUABOOST"] = function(input)
         db.speedyLoadMode = "aggressive"
         Msg("SpeedyLoad: |cff00ff00ON|r (|cffff8844aggressive|r, " .. #SPEEDY_AGGRESSIVE_EVENTS .. " events)")
 
+    -- [v1.2.0] Math auto-detect commands
+    elseif input == "mathbench" or input == "math bench" then
+        db.mathBenchDone = false
+        RunMathAutoDetect(false)
+
+    elseif input == "math" then
+        orig_print(ADDON_COLOR .. "[LuaBoost]|r Math functions:")
+        local function fn_line(name, use)
+            return orig_format("  %s: %s", name,
+                use and "|cff44ff44fast (LuaBoost)|r" or "|cff888888original (Lua/C)|r")
+        end
+        orig_print(fn_line("math.floor", db.mathUseFloor))
+        orig_print(fn_line("math.ceil",  db.mathUseCeil))
+        orig_print(fn_line("math.abs",   db.mathUseAbs))
+        orig_print(orig_format("  Auto-detect: %s | Bench: %s",
+            db.mathAutoDetect and "on" or "off",
+            db.mathBenchDone and "done" or "pending"))
+        orig_print("  " .. VALUE_COLOR .. "/lb mathbench|r to re-run detection")
+
     elseif input == "settings" then
         InterfaceOptionsFrame_OpenToCategory(panelSettings)
         InterfaceOptionsFrame_OpenToCategory(panelSettings)
@@ -1346,6 +1548,8 @@ SlashCmdList["LUABOOST"] = function(input)
         orig_print("  /lb sl           — toggle SpeedyLoad")
         orig_print("  /lb sl safe      — SpeedyLoad safe mode")
         orig_print("  /lb sl agg       — SpeedyLoad aggressive mode")
+        orig_print("  /lb math         — math optimization status")
+        orig_print("  /lb mathbench    — re-run math auto-detect")
         orig_print("  /lb settings     — open GC settings")
     else
         ShowStatus()
@@ -1362,7 +1566,7 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME and arg1 ~= ("!" .. ADDON_NAME) then return end
 
-        InitDB()
+        InitDB()           -- also calls ApplyMathChoices() for saved results
         ApplyProtectionHooks()
 
         lastActivity = orig_GetTime()
@@ -1395,6 +1599,19 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
         SpeedyLoad_HookUnregister()
         SpeedyLoad_EnsurePriority()
 
+        -- [v1.2.0] Schedule math auto-detect if needed (5 sec delay to avoid login lag)
+        if db.mathAutoDetect and not db.mathBenchDone then
+            local benchDelay = CreateFrame("Frame")
+            local elapsed = 0
+            benchDelay:SetScript("OnUpdate", function(f, dt)
+                elapsed = elapsed + dt
+                if elapsed >= 5 then
+                    f:SetScript("OnUpdate", nil)
+                    RunMathAutoDetect(false)
+                end
+            end)
+        end
+
         -- Login message
         local parts = {}
         parts[#parts + 1] = ADDON_COLOR .. "[LuaBoost]|r v" .. ADDON_VERSION
@@ -1405,6 +1622,18 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
             parts[#parts + 1] = "SL:|cff00ff00" .. db.speedyLoadMode .. "|r"
         end
         if hasDLL() then parts[#parts + 1] = "|cff00ff00DLL|r" end
+
+        -- [v1.2.0] Math status in login message
+        if db.mathBenchDone then
+            local mc = 0
+            if db.mathUseFloor then mc = mc + 1 end
+            if db.mathUseCeil  then mc = mc + 1 end
+            if db.mathUseAbs   then mc = mc + 1 end
+            parts[#parts + 1] = orig_format("Math:%s%d/3|r", VALUE_COLOR, mc)
+        else
+            parts[#parts + 1] = "Math:|cffffff44detecting...|r"
+        end
+
         parts[#parts + 1] = VALUE_COLOR .. "/lb|r help"
         orig_print(table.concat(parts, " | "))
 
