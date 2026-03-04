@@ -79,15 +79,20 @@ function _G.GetFrameNumber()
 end
 
 -- A2. Faster math functions (applied eagerly; may be reverted by auto-detect)
-local function fast_floor(x) return x - x % 1 end
+local function fast_floor(x)
+    x = x + 0
+    return x - x % 1
+end
 
 local function fast_ceil(x)
+    x = x + 0
     local f = x - x % 1
     if f == x then return x end
     return f + 1
 end
 
 local function fast_abs(x)
+    x = x + 0
     if x < 0 then return -x end
     return x
 end
