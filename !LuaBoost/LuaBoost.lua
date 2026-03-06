@@ -17,6 +17,7 @@
 --   - Fixed debugprofilestop timing logic in GC methods
 --   - Capped emergency GC threshold auto-raise at 1000 MB
 --   - Added 2-second guard to prevent double GC on teleport
+--   - UI UX Update: Renamed presets to Memory sizes, silenced auto-bench
 -- ================================================================
 
 local addonName, addonTable = ...
@@ -450,6 +451,13 @@ local function ApplyPreset(name)
         db[k] = v
     end
     db.preset = name
+end
+
+local function GetPresetNameDisplay(p)
+    if p == "weak" then return "Light" end
+    if p == "mid" then return "Standard" end
+    if p == "strong" then return "Heavy" end
+    return p or "Custom"
 end
 
 local function GetMemoryMB()
@@ -1168,17 +1176,17 @@ panelMain:SetScript("OnShow", function(self)
         end
     )
 
-    Label(self, L["GC Presets:"], 16, -106, "GameFontNormal")
+    Label(self, L["GC Presets (Choose based on your combat memory):"], 16, -106, "GameFontNormal")
 
     local pdata = {
-        { k = "weak",   l = L["|cffff8844Weak|r"],   x = 16 },
-        { k = "mid",    l = L["|cffffff44Mid|r"],    x = 126 },
-        { k = "strong", l = L["|cff44ff44Strong|r"], x = 236 },
+        { k = "weak",   l = L["|cffff8844Light (< 150MB)|r"],   x = 16 },
+        { k = "mid",    l = L["|cffffff44Std (150-300MB)|r"],   x = 136 },
+        { k = "strong", l = L["|cff44ff44Heavy (> 300MB)|r"],   x = 256 },
     }
 
     for _, p in orig_pairs(pdata) do
         local b = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
-        b:SetSize(100, 22)
+        b:SetSize(115, 22)  
         b:SetPoint("TOPLEFT", p.x, -130)
         b:SetText(p.l)
         b:SetScript("OnClick", function()
@@ -1263,25 +1271,25 @@ panelSettings:SetScript("OnShow", function(self)
     Slider(self, L["Normal Step"], L["GC per frame during normal gameplay."], 20, -86,
         1, 500, 5,
         function() return db.frameStepKB end,
-        function(v) db.frameStepKB = v; db.preset = L["custom"] end
+        function(v) db.frameStepKB = v; db.preset = "custom" end
     )
 
     Slider(self, L["Combat Step"], L["GC per frame in combat (keep low to protect frametime)."], 20, -138,
         0, 100, 1,
         function() return db.combatStepKB end,
-        function(v) db.combatStepKB = v; db.preset = L["custom"] end
+        function(v) db.combatStepKB = v; db.preset = "custom" end
     )
 
     Slider(self, L["Idle Step"], L["GC per frame while AFK/idle."], 20, -190,
         10, 1000, 10,
         function() return db.idleStepKB end,
-        function(v) db.idleStepKB = v; db.preset = L["custom"] end
+        function(v) db.idleStepKB = v; db.preset = "custom" end
     )
 
     Slider(self, L["Loading Step"], L["GC per frame during loading screens (no rendering)."], 20, -242,
         50, 1000, 25,
         function() return db.loadingStepKB end,
-        function(v) db.loadingStepKB = v; db.preset = L["custom"] end
+        function(v) db.loadingStepKB = v; db.preset = "custom" end
     )
 
     Label(self, L["Thresholds"], 16, -286, "GameFontNormal")
@@ -1291,7 +1299,7 @@ panelSettings:SetScript("OnShow", function(self)
         .. L["Set higher (300-500+) if you use many addons to avoid long freezes."], 20, -326,
         20, 1000, 10,
         function() return db.fullCollectThresholdMB end,
-        function(v) db.fullCollectThresholdMB = v; db.preset = L["custom"] end
+        function(v) db.fullCollectThresholdMB = v; db.preset = "custom" end
     )
 
     Slider(self, L["Idle Timeout (sec)"], L["Seconds without activity before idle mode."], 20, -378,
@@ -1577,7 +1585,7 @@ SlashCmdList["LUABOOST"] = function(input)
     -- [v1.2.0] Math auto-detect commands
     elseif input == "mathbench" or input == "math bench" then
         db.mathBenchDone = false
-        RunMathAutoDetect(false)
+        RunMathAutoDetect(false) -- False here means it WILL print to chat because user asked for it
 
     elseif input == "math" then
         orig_print(ADDON_COLOR .. L["[LuaBoost]|r Math functions:"])
@@ -1626,7 +1634,7 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME and arg1 ~= ("!" .. ADDON_NAME) then return end
 
-        InitDB()           -- also calls ApplyMathChoices() for saved results
+        InitDB()           
         ApplyProtectionHooks()
 
         lastActivity = orig_GetTime()
@@ -1667,16 +1675,16 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
                 elapsed = elapsed + dt
                 if elapsed >= 5 then
                     f:SetScript("OnUpdate", nil)
-                    RunMathAutoDetect(false)
+                    RunMathAutoDetect(true) -- Silent mode! No chat output on login.
                 end
             end)
         end
 
-        -- Login message
+        -- Login message (Cleaned up, no math spam)
         local parts = {}
         parts[#parts + 1] = ADDON_COLOR .. "[LuaBoost]|r v" .. ADDON_VERSION
         parts[#parts + 1] = db.enabled
-            and (L["GC:"] .. VALUE_COLOR .. (db.preset or L["custom"]) .. "|r")
+            and (L["GC:"] .. VALUE_COLOR .. GetPresetNameDisplay(db.preset) .. "|r")
             or L["GC:|cffff0000OFF|r"]
 
         if db.speedyLoadEnabled then
@@ -1685,17 +1693,6 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
 
         if hasDLL() then
             parts[#parts + 1] = "|cff00ff00DLL|r"
-        end
-
-        -- [v1.2.0] Math status in login message
-        if db.mathBenchDone then
-            local mc = 0
-            if db.mathUseFloor then mc = mc + 1 end
-            if db.mathUseCeil  then mc = mc + 1 end
-            if db.mathUseAbs   then mc = mc + 1 end
-            parts[#parts + 1] = orig_format(L["Math:%s%d/3|r"], VALUE_COLOR, mc)
-        else
-            parts[#parts + 1] = L["Math:|cffffff44detecting...|r"]
         end
 
         parts[#parts + 1] = VALUE_COLOR .. L["/lb|r help"]
