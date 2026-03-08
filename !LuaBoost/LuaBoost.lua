@@ -1339,7 +1339,7 @@ panelMain:SetScript("OnShow", function(self)
     local function UpdateSpeedyModeLabel()
         if not db or not speedyModeLabel then return end
         local isAggressive = (db.speedyLoadMode == "aggressive")
-        local modeStr = isAggressive and "|cffff8844Aggressive|r" or "|cff44ff44Safe|r"
+        local modeStr = isAggressive and L["|cffff8844Aggressive|r"] or L["|cff44ff44Safe|r"]
         local count = isAggressive and #SPEEDY_AGGRESSIVE_EVENTS or #SPEEDY_SAFE_EVENTS
         speedyModeLabel:SetText(string.format(L["Mode: %s (%d events)"], modeStr, count))
     end
