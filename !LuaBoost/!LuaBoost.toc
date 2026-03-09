@@ -9,6 +9,7 @@
 # Localization Tables
 enUS.lua
 koKR.lua
+deDE.lua
 
 # Main Logic
 LuaBoost.lua
