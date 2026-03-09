@@ -442,6 +442,8 @@ orig_collectgarbage("collect")
 orig_collectgarbage("collect")
 
 local gcReStopCounter = 0
+local gcMemCheckCounter = 0
+
 
 local gcFrame = CreateFrame("Frame")
 gcFrame:SetScript("OnUpdate", function()
@@ -461,9 +463,16 @@ gcFrame:SetScript("OnUpdate", function()
         orig_collectgarbage("stop")
     end
 
-    -- Emergency full GC (not in combat, not loading)
-    local memKB = orig_collectgarbage("count")
-    if memKB > (db.fullCollectThresholdMB * 1024) and not inCombat and not isLoading then
+    -- Emergency full GC check (every 60 frames, not every frame)
+    -- collectgarbage("count") is not free — it walks internal GC lists
+    -- Memory threshold is in hundreds of MB — no need to check 60x/sec
+    local memKB
+    gcMemCheckCounter = gcMemCheckCounter + 1
+    if gcMemCheckCounter >= 60 then
+        gcMemCheckCounter = 0
+        memKB = orig_collectgarbage("count")
+    end
+    if memKB and memKB > (db.fullCollectThresholdMB * 1024) and not inCombat and not isLoading then then
         orig_debugprofilestart()
         orig_collectgarbage("collect")
         orig_collectgarbage("collect")
