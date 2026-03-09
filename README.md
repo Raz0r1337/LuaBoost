@@ -25,6 +25,7 @@ Designed for **Warmane** and other 3.3.5a servers.
 
 - **English (`enUS`)**: Default
 - **Korean (`koKR`)**: Translated and optimized by [**nadugi**](https://github.com/nadugi)
+- **German (`deDE`)**: Translated and optimized by [**Raz0r1337**](https://github.com/Raz0r1337)
 
 *If you want to translate LuaBoost to your language, feel free to submit a Pull Request! Just copy `enUS.lua`, rename it to your locale (e.g., `ruRU.lua`), translate the strings, and add it to `!LuaBoost.toc`.*
 
