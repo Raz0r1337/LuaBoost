@@ -37,6 +37,10 @@ if locale == "koKR" and _G.LuaBoost_Locale_koKR then
     for k, v in pairs(_G.LuaBoost_Locale_koKR) do
         L[k] = v
     end
+elseif locale == "deDE" and _G.LuaBoost_Locale_deDE then
+    for k, v in pairs(_G.LuaBoost_Locale_deDE) do
+        L[k] = v
+    end
 end
 
 addonTable.L = L
