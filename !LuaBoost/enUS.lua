@@ -1,4 +1,4 @@
--- LuaBoost English Localization (Base) v1.3.0
+-- LuaBoost English Localization (Base) v1.4.0
 -- This file serves as the default reference for all translations.
 
 LuaBoost_Locale_enUS = {
@@ -29,24 +29,6 @@ LuaBoost_Locale_enUS = {
     ["SpeedyLoad: restored %d registrations (fallback)"] = "SpeedyLoad: restored %d registrations (fallback)",
 
     -- PART D: UI Thrashing Protection    
-    ["ThrashGuard: FontString metatable not found"] = "ThrashGuard: FontString metatable not found",
-    ["ThrashGuard: StatusBar metatable not found"] = "ThrashGuard: StatusBar metatable not found",
-    -- FontString:SetText(text)
-    ["ThrashGuard: FontString:SetText hooked"] = "ThrashGuard: FontString:SetText hooked",
-    -- FontString:SetFormattedText(fmt, ...)
-    ["ThrashGuard: FontString:SetFormattedText hooked"] = "ThrashGuard: FontString:SetFormattedText hooked",
-    -- FontString:SetTextColor(r, g, b [, a])
-    ["ThrashGuard: FontString:SetTextColor hooked"] = "ThrashGuard: FontString:SetTextColor hooked",
-    -- StatusBar:SetValue(value)
-    ["ThrashGuard: StatusBar:SetValue hooked"] = "ThrashGuard: StatusBar:SetValue hooked",
-    -- StatusBar:SetMinMaxValues(min, max)
-    ["ThrashGuard: StatusBar:SetMinMaxValues hooked"] = "ThrashGuard: StatusBar:SetMinMaxValues hooked",
-    -- StatusBar:SetStatusBarColor(r, g, b [, a])
-    ["ThrashGuard: StatusBar:SetStatusBarColor hooked"] = "ThrashGuard: StatusBar:SetStatusBarColor hooked",
-    ["ThrashGuard: installed %d/6 hooks"] = "ThrashGuard: installed %d/6 hooks",
-    ["ThrashGuard: all hooks removed"] = "ThrashGuard: all hooks removed",
-
-
     -- PART E: GUI (Interface Options)
     -- Main panel
     ["Lua runtime optimizer + smart garbage collector for WoW 3.3.5a."] = "Lua runtime optimizer + smart garbage collector for WoW 3.3.5a.",
@@ -71,6 +53,7 @@ LuaBoost_Locale_enUS = {
     ["Mode: %s (%d events)"] = "Mode: %s (%d events)",
     ["|cff44ff44Safe|r"] = "|cff44ff44Safe|r",
     ["|cffff8844Aggressive|r"] = "|cffff8844Aggressive|r",
+    ["Mode: %s (%d events)"] = "Mode: %s (%d events)",
     ["|cffff4444GetFramesRegisteredForEvent not available — SpeedyLoad disabled.|r"] = "|cffff4444GetFramesRegisteredForEvent not available — SpeedyLoad disabled.|r",
 
     -- UI Thrashing Protection section
@@ -80,6 +63,7 @@ LuaBoost_Locale_enUS = {
     ["Speeds up all addons that update UI every frame.\n"] = "Speeds up all addons that update UI every frame.\n",
     ["Hooks: SetText, SetFormattedText, SetTextColor,\n"] = "Hooks: SetText, SetFormattedText, SetTextColor,\n",
     ["SetValue, SetMinMaxValues, SetStatusBarColor.\n"] = "SetValue, SetMinMaxValues, SetStatusBarColor.\n",
+    ["to prevent taint with Blizzard dropdown menus.\n"] = "to prevent taint with Blizzard dropdown menus.\n",
     ["|cff44ff44Safe — no taint, no gameplay impact.|r\n"] = "|cff44ff44Safe — no taint, no gameplay impact.|r\n",
     ["|cffff8844Requires /reload to take effect.|r"] = "|cffff8844Requires /reload to take effect.|r",
 
@@ -157,32 +141,24 @@ LuaBoost_Locale_enUS = {
     [" events)"] = " events)",
     ["SpeedyLoad: |cff00ff00ON|r (|cffff8844aggressive|r, "] = "SpeedyLoad: |cff00ff00ON|r (|cffff8844aggressive|r, ",
     ["[LuaBoost]|r UI Thrashing Protection:"] = "[LuaBoost]|r UI Thrashing Protection:",
-    ["  Status: %s | Hooks: %d/6"] = "  Status: %s | Hooks: %d/6",
-    ["|cff00ff00ACTIVE|r"] = "|cff00ff00ACTIVE|r",
+    ["  Status: %s | Hooks: %d/3"] = "  Status: %s | Hooks: %d/3",
     ["  Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r"] = "  Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r",
-    ["  Hit rate: |cff00ff00%.1f%%|r"] = "  Hit rate: |cff00ff00%.1f%%|r",
-    ["  Cached widgets: %d"] = "  Cached widgets: %d",
-    ["UI Thrashing Protection: |cffff0000OFF|r (hooks removed)"] = "UI Thrashing Protection: |cffff0000OFF|r (hooks removed)",
-    ["UI Thrashing Protection: |cffff0000FAILED|r — "] = "UI Thrashing Protection: |cffff0000FAILED|r — ",
-    ["ThrashGuard stats reset"] = "ThrashGuard stats reset",
     ["[LuaBoost]|r Commands:"] = "[LuaBoost]|r Commands:",
-    ["  /lb               — status"] = "  /lb               — status",
-    ["  /lb gc            — GC stats"] = "  /lb gc            — GC stats",
-    ["  /lb pool          — table pool stats"] = "  /lb pool          — table pool stats",
-    ["  /lb toggle        — enable/disable GC manager"] = "  /lb toggle        — enable/disable GC manager",
-    ["  /lb force         — force full GC now"] = "  /lb force         — force full GC now",
-    ["  /lb sl            — toggle SpeedyLoad"] = "  /lb sl            — toggle SpeedyLoad",
-    ["  /lb sl safe       — SpeedyLoad safe mode"] = "  /lb sl safe       — SpeedyLoad safe mode",
-    ["  /lb sl agg        — SpeedyLoad aggressive mode"] = "  /lb sl agg        — SpeedyLoad aggressive mode",
-    ["  /lb settings      — open GC settings"] = "  /lb settings      — open GC settings",
-    ["  /lb tg            — UI thrash protection stats"] = "  /lb tg            — UI thrash protection stats",
-    ["  /lb tg toggle     — enable/disable thrash guard"] = "  /lb tg toggle     — enable/disable thrash guard",
-    ["  /lb tg reset      — reset thrash guard counters"] = "  /lb tg reset      — reset thrash guard counters",
+    ["  /lb              — status"]                      = "  /lb              — status",
+    ["  /lb gc           — GC stats"]                    = "  /lb gc           — GC stats",
+    ["  /lb pool         — table pool stats"]            = "  /lb pool         — table pool stats",
+    ["  /lb toggle       — enable/disable GC manager"]   = "  /lb toggle       — enable/disable GC manager",
+    ["  /lb force        — force full GC now"]           = "  /lb force        — force full GC now",
+    ["  /lb sl           — toggle SpeedyLoad"]           = "  /lb sl           — toggle SpeedyLoad",
+    ["  /lb sl safe      — SpeedyLoad safe mode"]        = "  /lb sl safe      — SpeedyLoad safe mode",
+    ["  /lb sl agg       — SpeedyLoad aggressive mode"]  = "  /lb sl agg       — SpeedyLoad aggressive mode",
+    ["  /lb settings     — open GC settings"]            = "  /lb settings     — open GC settings",
+    ["  /lb tg           — UI thrash protection stats"]  = "  /lb tg           — UI thrash protection stats",
+    ["  /lb tg toggle    — enable/disable thrash guard"] = "  /lb tg toggle    — enable/disable thrash guard",
+    ["  /lb tg reset     — reset thrash guard counters"] = "  /lb tg reset     — reset thrash guard counters",
 
     -- PART G: Initialization
-    ["ThrashGuard install error: "] = "ThrashGuard install error: ",
     ["GC: "] = "GC: ",
     ["GC:|cffff0000OFF|r"] = "GC:|cffff0000OFF|r",
-    ["/lb help|r"] = "/lb help|r",
     ["[LuaBoost]|r |cffff8844WARNING:|r SmartGC detected. Disable SmartGC to avoid conflicts."] = "[LuaBoost]|r |cffff8844WARNING:|r SmartGC detected. Disable SmartGC to avoid conflicts.",
 }

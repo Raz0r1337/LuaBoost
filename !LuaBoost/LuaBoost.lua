@@ -1,5 +1,5 @@
 -- ================================================================
---  LuaBoost v1.3.0 — WoW 3.3.5a Lua Runtime Optimizer (Taint-Free)
+--  LuaBoost v1.4.0 — WoW 3.3.5a Lua Runtime Optimizer (Taint-Free)
 --  Author: Suprematist
 --
 --  Features:
@@ -32,14 +32,14 @@ if _G.LuaBoost_Locale_enUS then
 end
 
 local locale = GetLocale()
+local localeData = _G["LuaBoost_Locale_" .. locale]
 
-if locale == "koKR" and _G.LuaBoost_Locale_koKR then
-    for k, v in pairs(_G.LuaBoost_Locale_koKR) do
-        L[k] = v
-    end
-elseif locale == "deDE" and _G.LuaBoost_Locale_deDE then
-    for k, v in pairs(_G.LuaBoost_Locale_deDE) do
-        L[k] = v
+local locale = GetLocale()
+if locale ~= "enUS" then
+    if localeData then
+        for k, v in pairs(localeData) do
+            L[k] = v
+        end
     end
 end
 
@@ -1242,7 +1242,7 @@ panelMain:SetScript("OnShow", function(self)
     local function UpdateSpeedyModeLabel()
         if not db or not speedyModeLabel then return end
         local isAggressive = (db.speedyLoadMode == "aggressive")
-        local modeStr = isAggressive and "|cffff8844Aggressive|r" or "|cff44ff44Safe|r"
+        local modeStr = isAggressive and L["|cffff8844Aggressive|r"] or L["|cff44ff44Safe|r"]
         local count = isAggressive and #SPEEDY_AGGRESSIVE_EVENTS or #SPEEDY_SAFE_EVENTS
         speedyModeLabel:SetText(string.format(L["Mode: %s (%d events)"], modeStr, count))
     end
@@ -1302,10 +1302,10 @@ panelMain:SetScript("OnShow", function(self)
             local total = sk + ps
             local rate = total > 0 and (sk / total * 100) or 0
             tgStatsLabel:SetText(orig_format(
-                "ThrashGuard: |cff00ff00%d|r/3 hooks | Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r | Rate: |cff00ff00%.0f%%|r",
+                L["ThrashGuard: |cff00ff00%d|r/3 hooks | Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r | Rate: |cff00ff00%.0f%%|r"],
                 thrashStats.hooked, sk, ps, rate))
         else
-            tgStatsLabel:SetText("ThrashGuard: |cffaaaaaaInactive|r")
+            tgStatsLabel:SetText(L["ThrashGuard: |cffaaaaaaInactive|r"])
         end
     end)    
 end)
@@ -1582,9 +1582,9 @@ SlashCmdList["LUABOOST"] = function(input)
     elseif input == "thrash" or input == "tg" then
         local sk, ps, hk, act, wid = LuaBoost_GetThrashStats()
         orig_print(ADDON_COLOR .. L["[LuaBoost]|r UI Thrashing Protection:"])
-        orig_print(orig_format("  Status: %s | Hooks: %d/3",
+        orig_print(orig_format(L["  Status: %s | Hooks: %d/3"],
             act and "|cff00ff00ACTIVE|r" or "|cffff0000OFF|r", hk))
-        orig_print(orig_format("  Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r",
+        orig_print(orig_format(L["  Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r"],
             sk, ps))
         if (sk + ps) > 0 then
             orig_print(orig_format("  Hit rate: |cff00ff00%.1f%%|r",
@@ -1630,7 +1630,7 @@ SlashCmdList["LUABOOST"] = function(input)
         orig_print(L["  /lb settings     — open GC settings"])
         orig_print(L["  /lb tg           — UI thrash protection stats"])
         orig_print(L["  /lb tg toggle    — enable/disable thrash guard"])
-        orig_print(L["  /lb tg reset     — reset thrash guard counters"])        
+        orig_print(L["  /lb tg reset     — reset thrash guard counters"])
     else
         ShowStatus()
     end
