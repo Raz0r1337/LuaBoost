@@ -1,23 +1,28 @@
-# ⚡️ LuaBoost v1.3.0 (WotLK 3.3.5a)
+# ⚡️ LuaBoost v1.4.0 (WotLK 3.3.5a)
 
 **Lua runtime optimizer + SmartGC + SpeedyLoad + UI Thrashing Protection for World of Warcraft 3.3.5a (build 12340)**  
 Author: **Suprematist**
 
-LuaBoost improves addon performance by eliminating GC stutter with per-frame incremental garbage collection, speeding up loading screens by suppressing noisy events, and preventing redundant UI widget updates across all addons. 
+LuaBoost improves addon performance by eliminating GC stutter with per-frame incremental garbage collection, speeding up loading screens by suppressing noisy events, and preventing redundant UI widget updates across all addons.
 
 Designed for **Warmane** and other 3.3.5a servers.
 
 ---
 
-## 🆕 What's New in v1.3.0
+## 🆕 What's New in v1.4.0
 
 | Feature | Description |
 |---------|-------------|
-| **UI Thrashing Protection** | Automatically caches widget values and skips redundant engine calls. Speeds up all addons that update UI every frame. Zero configuration needed. |
-| **Safe StatusBar Hooks** | Hooks `SetValue`, `SetMinMaxValues`, and `SetStatusBarColor`. 100% safe from Blizzard Dropdown Menu taint. FontString hooks were removed to prevent interaction issues with secure frames. |
-| **Runtime Toggle** | Use `/lb tg toggle` to enable/disable at runtime without reloading the UI. Check live stats via `/lb tg`. |
+| **Frame Consolidation** | 5 separate event frames merged into a single master dispatcher. Reduces C++ engine overhead for all 32 registered events. |
+| **GC Memory Check Throttle** | `collectgarbage("count")` called every 60 frames instead of every frame. Reduces Lua overhead while still catching memory spikes within 1 second. |
+| **ThrashGuard Pool Integration** | Widget cache tables now use the shared table pool (`LuaBoost_AcquireTable`) instead of creating new tables. Reduces GC pressure. |
 
-*(For older changes like Taint-Free optimizations and SpeedyLoad, see previous releases).*
+### Previous Highlights (v1.3.0)
+| Feature | Description |
+|---------|-------------|
+| **UI Thrashing Protection** | Caches StatusBar widget values and skips redundant engine calls. Speeds up all addons that update UI every frame. |
+| **Safe StatusBar Hooks** | Hooks `SetValue`, `SetMinMaxValues`, and `SetStatusBarColor`. 100% safe from Blizzard Dropdown Menu taint. |
+| **Runtime Toggle** | Use `/lb tg toggle` to enable/disable at runtime without reloading the UI. |
 
 ---
 
@@ -33,8 +38,8 @@ Designed for **Warmane** and other 3.3.5a servers.
 
 ## ✅ Features
 
-### 🛡️ UI Thrashing Protection (NEW in v1.3.0)
-Poorly written addons call UI methods every single frame even when the value hasn't changed (e.g., `HealthBar:SetValue(45000)` 60 times a second). 
+### 🛡️ UI Thrashing Protection
+Poorly written addons call UI methods every single frame even when the value hasn't changed (e.g., `HealthBar:SetValue(45000)` 60 times a second).
 
 LuaBoost hooks widget metatable methods globally and caches the last value. If the new value is identical, the engine call is **completely skipped** — saving bar fill recomputation and CPU cycles.
 
@@ -43,7 +48,10 @@ LuaBoost hooks widget metatable methods globally and caches the last value. If t
 - `StatusBar:SetMinMaxValues`
 - `StatusBar:SetStatusBarColor`
 
-*Note: FontString and Texture methods are intentionally NOT hooked because modifying them causes "Action Blocked" taint errors with Blizzard's secure dropdown menus, or desyncs C++ engine animations.*
+*Note: FontString and Texture methods are intentionally NOT hooked because modifying them causes "Action Blocked" taint errors with Blizzard's secure dropdown menus.*
+
+### 🏗️ Optimized Event Architecture (NEW in v1.4.0)
+All event handling consolidated into a single master dispatcher frame. Instead of 5+ separate C++ Frame objects each with their own `OnEvent` handler, one frame routes all 32 events through a Lua table lookup.
 
 ### Safe Runtime Optimizations (automatic, always active)
 - `GetTimeCached()` — cached `GetTime()` value updated once per frame
@@ -59,6 +67,7 @@ LuaBoost hooks widget metatable methods globally and caches the last value. If t
   - **Idle**: aggressive cleanup while AFK
   - **Normal**: balanced stepping
 - Emergency full GC when Lua memory exceeds threshold (outside combat)
+  - **Throttled check**: memory checked every 60 frames, not every frame (NEW in v1.4.0)
 - GC burst on heavy events (boss kill, LFG popup, achievement, loot spam)
 - **3 presets**: Light / Standard / Heavy — pick based on your addon load
 - GUI: `ESC → Interface → AddOns → LuaBoost`
@@ -78,11 +87,11 @@ LuaBoost hooks widget metatable methods globally and caches the last value. If t
 
 ## 🔧 Recommended Optimization Ecosystem
 
-For maximum client performance, use all three of my optimization projects together:
+For maximum client performance, use all optimization layers together:
 
 | Layer | Tool | What It Does |
 |-------|------|--------------|
-| **C / Engine** | [wow_optimize.dll](https://github.com/suprepupre/wow-optimize) | Faster memory allocator (mimalloc), network optimization (TCP_NODELAY), precision timers, Lua GC from C, combat log pool fix. |
+| **C / Engine** | [wow_optimize.dll](https://github.com/suprepupre/wow-optimize) | Faster memory allocator (mimalloc), full network latency stack, precision timers, Lua GC from C, combat log fix. |
 | **Lua / Runtime** | **!LuaBoost** | Smart GC, SpeedyLoad, UI Thrashing Protection, table pool, throttle API. |
 
 When the DLL and !LuaBoost addon are both installed, they communicate automatically. The DLL handles GC stepping from C (zero Lua overhead), and the addon handles combat awareness and GUI.
@@ -151,7 +160,8 @@ Interface/AddOns/!LuaBoost/
 ├── !LuaBoost.toc
 ├── LuaBoost.lua
 ├── enUS.lua
-└── koKR.lua
+├── koKR.lua
+└── deDE.lua
 ```
 
 *(Make sure the folder is named `!LuaBoost` so it loads early).*
