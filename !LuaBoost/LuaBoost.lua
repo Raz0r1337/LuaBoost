@@ -260,6 +260,84 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 -- ================================================================
+-- Event Profiler — counts event frequency for diagnostics
+-- Usage: /lb events — shows top events in last 10 seconds
+-- ================================================================
+
+local eventProfiler = {
+    enabled   = false,
+    counts    = {},
+    startTime = 0,
+}
+
+local profilerFrame = CreateFrame("Frame")
+
+local function StartEventProfiler()
+    eventProfiler.enabled = true
+    eventProfiler.startTime = orig_GetTime()
+    for k in orig_pairs(eventProfiler.counts) do
+        eventProfiler.counts[k] = nil
+    end
+    profilerFrame:RegisterAllEvents()
+    Msg("Event profiler |cff00ff00STARTED|r — collecting for 10 seconds...")
+end
+
+local function StopEventProfiler()
+    eventProfiler.enabled = false
+    profilerFrame:UnregisterAllEvents()
+
+    local elapsed = orig_GetTime() - eventProfiler.startTime
+    if elapsed < 0.1 then elapsed = 0.1 end
+
+    local sorted = {}
+    for event, count in orig_pairs(eventProfiler.counts) do
+        sorted[#sorted + 1] = { event = event, count = count }
+    end
+    table.sort(sorted, function(a, b) return a.count > b.count end)
+
+    orig_print(ADDON_COLOR .. "[LuaBoost]|r Event Profile (" .. orig_format("%.1f", elapsed) .. " sec):")
+
+    local shown = 0
+    for i = 1, #sorted do
+        if shown >= 15 then break end
+        local e = sorted[i]
+        local perSec = e.count / elapsed
+        local color = "|cffffff00"
+        if perSec > 50 then
+            color = "|cffff4444"
+        elseif perSec > 20 then
+            color = "|cffff8844"
+        end
+        orig_print(orig_format("  %s%-30s|r  %s%d|r total  (%s%.1f|r/sec)",
+            color, e.event, VALUE_COLOR, e.count, color, perSec))
+        shown = shown + 1
+    end
+
+    if shown == 0 then
+        orig_print("  No events recorded.")
+    end
+
+    local total = 0
+    for _, e in orig_ipairs(sorted) do
+        total = total + e.count
+    end
+    orig_print(orig_format("  Total: |cffffff00%d|r events (|cffffff00%.0f|r/sec) across |cffffff00%d|r unique types",
+        total, total / elapsed, #sorted))
+end
+
+profilerFrame:SetScript("OnEvent", function(self, event)
+    if not eventProfiler.enabled then return end
+    eventProfiler.counts[event] = (eventProfiler.counts[event] or 0) + 1
+end)
+
+profilerFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not eventProfiler.enabled then return end
+    if (orig_GetTime() - eventProfiler.startTime) >= 10 then
+        StopEventProfiler()
+    end
+end)
+
+-- ================================================================
 -- PART B: Smart GC Manager
 -- ================================================================
 
@@ -1674,6 +1752,13 @@ SlashCmdList["LUABOOST"] = function(input)
         thrashStats.passed  = 0
         Msg("ThrashGuard stats reset")
 
+    elseif input == "events" then
+        if eventProfiler.enabled then
+            StopEventProfiler()
+        else
+            StartEventProfiler()
+        end
+    
     elseif input == "updates" then
         orig_print(ADDON_COLOR .. "[LuaBoost]|r OnUpdate Dispatcher:")
         orig_print(orig_format("  Registered callbacks: |cffffff00%d|r", updateCount))
@@ -1702,6 +1787,7 @@ SlashCmdList["LUABOOST"] = function(input)
         orig_print(L["  /lb tg toggle    — enable/disable thrash guard"])
         orig_print(L["  /lb tg reset     — reset thrash guard counters"])
         orig_print("  /lb updates      — show registered update callbacks")
+        orig_print("  /lb events       — profile events for 10 seconds")        
     else
         ShowStatus()
     end
