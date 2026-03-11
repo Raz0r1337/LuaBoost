@@ -806,7 +806,9 @@ local function OnBurstEvent(event)
 
     local burstKB = 128
 
-    DebugMsg(orig_format("GC burst: %s (step %d KB)", event, burstKB))
+    if db.debug and event ~= "CHAT_MSG_LOOT" then
+        DebugMsg(orig_format("GC burst: %s (step %d KB)", event, burstKB))
+    end
 
     if hasDLL() and LuaBoostC_GCStep then
         LuaBoostC_GCStep(burstKB)
@@ -1914,9 +1916,8 @@ SlashCmdList["LUABOOST"] = function(input)
         orig_print(L["  /lb tg           — UI thrash protection stats"])
         orig_print(L["  /lb tg toggle    — enable/disable thrash guard"])
         orig_print(L["  /lb tg reset     — reset thrash guard counters"])
-        orig_print("  /lb updates      — show registered update callbacks")
-        orig_print("  /lb events       — profile events for 10 seconds")
-        orig_print("  /lb events       — profile events for 10 seconds")        
+        orig_print(L["  /lb updates      — show registered update callbacks"])
+        orig_print(L["  /lb events       — profile events for 10 seconds"])   
     else
         ShowStatus()
     end
