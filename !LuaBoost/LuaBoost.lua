@@ -197,10 +197,13 @@ end
 -- Moving mouse over a crowd calls it 30-60 times/sec.
 -- throttle to max 10/sec — imperceptible visually.
 
-local tooltipThrottleInterval = 0.1  -- 100ms = max 10 updates/sec
-local lastTooltipUnit = 0
-local lastTooltipSpell = 0
-local lastTooltipItem = 0
+local tooltipThrottleInterval = 0.1
+local lastTooltipUnitTime = 0
+local lastTooltipUnitArg = nil
+local lastTooltipSpellTime = 0
+local lastTooltipSpellArg = nil
+local lastTooltipItemTime = 0
+local lastTooltipItemArg = nil
 
 do
     local gt = GameTooltip
@@ -210,31 +213,43 @@ do
             gt.SetUnit = function(self, unit)
                 local now = cachedTime
                 if now == 0 then now = orig_GetTime() end
-                if (now - lastTooltipUnit) < tooltipThrottleInterval then return end
-                lastTooltipUnit = now
+                if unit == lastTooltipUnitArg then
+                    return origSetUnit(self, unit)
+                end
+                if (now - lastTooltipUnitTime) < tooltipThrottleInterval then return end
+                lastTooltipUnitTime = now
+                lastTooltipUnitArg = unit
                 return origSetUnit(self, unit)
             end
         end
 
         local origSetSpell = gt.SetSpell
         if origSetSpell then
-            gt.SetSpell = function(self, ...)
+            gt.SetSpell = function(self, id, bookType)
                 local now = cachedTime
                 if now == 0 then now = orig_GetTime() end
-                if (now - lastTooltipSpell) < tooltipThrottleInterval then return end
-                lastTooltipSpell = now
-                return origSetSpell(self, ...)
+                if id == lastTooltipSpellArg then
+                    return origSetSpell(self, id, bookType)
+                end
+                if (now - lastTooltipSpellTime) < tooltipThrottleInterval then return end
+                lastTooltipSpellTime = now
+                lastTooltipSpellArg = id
+                return origSetSpell(self, id, bookType)
             end
         end
 
-        local origSetItem = gt.SetHyperlink
-        if origSetItem then
+        local origSetHyperlink = gt.SetHyperlink
+        if origSetHyperlink then
             gt.SetHyperlink = function(self, link)
                 local now = cachedTime
                 if now == 0 then now = orig_GetTime() end
-                if (now - lastTooltipItem) < tooltipThrottleInterval then return end
-                lastTooltipItem = now
-                return origSetItem(self, link)
+                if link == lastTooltipItemArg then
+                    return origSetHyperlink(self, link)
+                end
+                if (now - lastTooltipItemTime) < tooltipThrottleInterval then return end
+                lastTooltipItemTime = now
+                lastTooltipItemArg = link
+                return origSetHyperlink(self, link)
             end
         end
     end
