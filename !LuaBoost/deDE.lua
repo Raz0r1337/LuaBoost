@@ -11,10 +11,10 @@ LuaBoost_Locale_deDE = {
     ["|cff888888idle|r"] = "|cff888888idle|r",
     ["|cff44ff44normal|r"] = "|cff44ff44normal|r",
     -- GC core
-    ["Idle mode activated"] = "Idle mode activated",
+    ["Idle mode activated"] = "Idle Modus aktiviert",
     -- Emergency full GC (not in combat, not loading)
     ["Emergency GC: freed %.1f MB in %.1f ms"] = "Notfall GC: %.1f MB in %.1f ms befreit",
-    ["Raised threshold to %d MB"] = "Raised threshold to %d MB",
+    ["Raised threshold to %d MB"] = "Schwellenwert auf %d MB angehoben",
 
     -- GC Burst on heavy events
     ["GC burst: %s (step %d KB)"] = "GC burst: %s (step %d KB)",
@@ -29,31 +29,13 @@ LuaBoost_Locale_deDE = {
     ["SpeedyLoad: restored %d registrations (fallback)"] = "SpeedyLoad: %d Registrierungen wiederhergestellt (Fallback)",
 
     -- PART D: UI Thrashing Protection    
-    ["ThrashGuard: FontString metatable not found"] = "ThrashGuard: FontString-Metatabelle nicht gefunden",
-    ["ThrashGuard: StatusBar metatable not found"] = "ThrashGuard: Statusleiste-Metatabelle nicht gefunden",
-    -- FontString:SetText(text)
-    ["ThrashGuard: FontString:SetText hooked"] = "ThrashGuard: FontString:SetText hooked",
-    -- FontString:SetFormattedText(fmt, ...)
-    ["ThrashGuard: FontString:SetFormattedText hooked"] = "ThrashGuard: FontString:SetFormattedText hooked",
-    -- FontString:SetTextColor(r, g, b [, a])
-    ["ThrashGuard: FontString:SetTextColor hooked"] = "ThrashGuard: FontString:SetTextColor hooked",
-    -- StatusBar:SetValue(value)
-    ["ThrashGuard: StatusBar:SetValue hooked"] = "ThrashGuard: StatusBar:SetValue hooked",
-    -- StatusBar:SetMinMaxValues(min, max)
-    ["ThrashGuard: StatusBar:SetMinMaxValues hooked"] = "ThrashGuard: StatusBar:SetMinMaxValues hooked",
-    -- StatusBar:SetStatusBarColor(r, g, b [, a])
-    ["ThrashGuard: StatusBar:SetStatusBarColor hooked"] = "ThrashGuard: StatusBar:SetStatusBarColor hooked",
-    ["ThrashGuard: installed %d/6 hooks"] = "ThrashGuard: %d/6 Hooks installiert",
-    ["ThrashGuard: all hooks removed"] = "ThrashGuard: alle hooks entfernt",
-
-
     -- PART E: GUI (Interface Options)
     -- Main panel
     ["Lua runtime optimizer + smart garbage collector for WoW 3.3.5a."] = "Lua-Laufzeitoptimierer + intelligenter Garbage Collector für WoW 3.3.5a.",
     [" | |cff00ff00DLL|r"] = " | |cff00ff00DLL|r",
     ["%s  |  Mem: %s%.1f MB|r  |  %s  |  %s%d|r KB/f%s"] = "%s  |  Mem: %s%.1f MB|r  |  %s  |  %s%d|r KB/f%s",
-    ["|cff00ff00ON|r"] = "|cff00ff00ON|r",
-    ["|cffff0000OFF|r"] = "|cffff0000OFF|r",
+    ["|cff00ff00ON|r"] = "|cff00ff00AN|r",
+    ["|cffff0000OFF|r"] = "|cffff0000AUS|r",
     ["Enable GC Manager"] = "Aktiviere GC Manager",
     ["Master toggle for smart GC."] = "Hautpschalter für Smart GC.",
     ["GC Presets (Choose based on your combat memory):"] = "GC-Voreinstellungen (Wählen Sie entsprechend Ihrer Kampferfahrung):",
@@ -69,8 +51,9 @@ LuaBoost_Locale_deDE = {
     ["Reduces CPU work and speeds up zone transitions.\n"] = "Reduziert die CPU-Auslastung und beschleunigt Zonenübergänge.\n",
     ["Restores all events after loading completes."] = "Stellt alle Ereignisse nach Abschluss des Ladevorgangs wieder her.",
     ["Mode: %s (%d events)"] = "Modus: %s (%d Ereignisse)",
-    ["|cff44ff44Safe|r"] = "|cff44ff44Safe|r",
+    ["|cff44ff44Safe|r"] = "|cff44ff44Sicher|r",
     ["|cffff8844Aggressive|r"] = "|cffff8844Aggressiv|r",
+    ["Mode: %s (%d events)"] = "Modus: %s (%d events)",
     ["|cffff4444GetFramesRegisteredForEvent not available — SpeedyLoad disabled.|r"] = "|cffff4444GetFramesRegisteredForEvent nicht verfügbar – SpeedyLoad deaktiviert.|r",
 
     -- UI Thrashing Protection section
@@ -80,12 +63,13 @@ LuaBoost_Locale_deDE = {
     ["Speeds up all addons that update UI every frame.\n"] = "Beschleunigt alle Add-ons, die die Benutzeroberfläche bei jedem Frame aktualisieren.\n",
     ["Hooks: SetText, SetFormattedText, SetTextColor,\n"] = "Hooks: SetText, SetFormattedText, SetTextColor,\n",
     ["SetValue, SetMinMaxValues, SetStatusBarColor.\n"] = "SetValue, SetMinMaxValues, SetStatusBarColor.\n",
+   ["to prevent taint with Blizzard dropdown menus.\n"] = "um eine Verfälschung durch die Dropdown-Menüs von Blizzard zu verhindern.\n",
     ["|cff44ff44Safe — no taint, no gameplay impact.|r\n"] = "|cff44ff44Sicher – keine Beeinträchtigung, keine Auswirkungen auf das Gameplay.|r\n",
     ["|cffff8844Requires /reload to take effect.|r"] = "|cffff8844Erfordert /reload, um wirksam zu werden.|r",
 
     -- Update thrash stats in the existing OnUpdate timer
     ["ThrashGuard: |cff00ff00%d|r hooks | Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r | Rate: |cff00ff00%.0f%%|r"] = "ThrashGuard: |cff00ff00%d|r hooks | Übersprungen: |cffffff00%d|r | Durchgeleitet : |cffffff00%d|r | Rate: |cff00ff00%.0f%%|r",
-    ["ThrashGuard: |cffaaaaaaInactive|r"] = "ThrashGuard: |cffaaaaaaInactive|r",
+    ["ThrashGuard: |cffaaaaaaInactive|r"] = "ThrashGuard: |cffaaaaaaInaktiv|r",
 
 
     -- GC Settings panel
@@ -158,13 +142,7 @@ LuaBoost_Locale_deDE = {
     ["SpeedyLoad: |cff00ff00ON|r (|cffff8844aggressive|r, "] = "SpeedyLoad: |cff00ff00AN|r (|cffff8844aggressiv|r, ",
     ["[LuaBoost]|r UI Thrashing Protection:"] = "[LuaBoost]|r UI-Thrashing-Schutz:",
     ["  Status: %s | Hooks: %d/6"] = "  Status: %s | Hooks: %d/6",
-    ["|cff00ff00ACTIVE|r"] = "|cff00ff00AKTIV|r",
     ["  Skipped: |cffffff00%d|r | Passed: |cffffff00%d|r"] = "  Übersprungen: |cffffff00%d|r | Durchgeleitet : |cffffff00%d|r",
-    ["  Hit rate: |cff00ff00%.1f%%|r"] = "  Hit rate: |cff00ff00%.1f%%|r",
-    ["  Cached widgets: %d"] = "  Cached widgets: %d",
-    ["UI Thrashing Protection: |cffff0000OFF|r (hooks removed)"] = "UI-Thrashing-Schutz: |cffff0000OFF|r (hooks entfernt)",
-    ["UI Thrashing Protection: |cffff0000FAILED|r — "] = "UI-Thrashing-Schutz: |cffff0000FEHLER|r — ",
-    ["ThrashGuard stats reset"] = "ThrashGuard-Statistiken zurücksetzen",
     ["[LuaBoost]|r Commands:"] = "[LuaBoost]|r Befehle:",
     ["  /lb               — status"] = "  /lb               — Status",
     ["  /lb gc            — GC stats"] = "  /lb gc            — GC Status",
@@ -178,11 +156,11 @@ LuaBoost_Locale_deDE = {
     ["  /lb tg            — UI thrash protection stats"] = "  /lb tg            — UI-Thrash-Schutz-Statistiken",
     ["  /lb tg toggle     — enable/disable thrash guard"] = "  /lb tg toggle     — Thrash Guard aktivieren/deaktivieren",
     ["  /lb tg reset      — reset thrash guard counters"] = "  /lb tg reset      — Thrash Guard-Zähler zurücksetzen",
+    ["  /lb updates      — show registered update callbacks"] = "  /lb updates      — Registrierte Update-Callbacks anzeigen",
+    ["  /lb events       — profile events for 10 seconds"] = "  /lb events       — Ereignisse 10 Sekunden lang protokollieren",
 
     -- PART G: Initialization
-    ["ThrashGuard install error: "] = "ThrashGuard-Installationsfehler: ",
     ["GC: "] = "GC: ",
-    ["GC:|cffff0000OFF|r"] = "GC:|cffff0000OFF|r",
-    ["/lb help|r"] = "/lb help|r",
+    ["GC:|cffff0000OFF|r"] = "GC:|cffff0000AUS|r",
     ["[LuaBoost]|r |cffff8844WARNING:|r SmartGC detected. Disable SmartGC to avoid conflicts."] = "[LuaBoost]|r |cffff8844WARNUNG:|r SmartGC erkannt. Deaktivieren Sie SmartGC, um Konflikte zu vermeiden.",
 }
