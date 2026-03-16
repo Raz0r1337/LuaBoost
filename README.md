@@ -1,9 +1,9 @@
-﻿# ⚡️ LuaBoost v1.6.0 (WotLK 3.3.5a)
+﻿# ⚡️ LuaBoost v1.7.0 (WotLK 3.3.5a)
 
-**Lua runtime optimizer + SmartGC + SpeedyLoad + UI Thrashing Protection for World of Warcraft 3.3.5a (build 12340)**
+**Lua runtime optimizer + SmartGC + SpeedyLoad + diagnostics for World of Warcraft 3.3.5a (build 12340)**
 Author: **Suprematist**
 
-LuaBoost improves addon performance by eliminating GC stutter with per-frame incremental garbage collection, speeding up loading screens by suppressing noisy events, and preventing redundant UI widget updates across all addons.
+LuaBoost improves addon performance by eliminating GC stutter with per-frame incremental garbage collection, speeding up loading screens by suppressing noisy events, and providing diagnostic tools for addon memory analysis.
 
 Designed for **Warmane** and other 3.3.5a servers.
 
@@ -15,26 +15,32 @@ See what other players say: [**Reviews & Testimonials**](https://github.com/supr
 
 ---
 
-## 🆕 What's New in v1.6.0
+## 🆕 What's New in v1.7.0
 
 | Feature | Description |
 |---------|-------------|
-| **GC Step Sync to DLL** | Addon GUI now controls DLL GC step sizes. Slider changes propagate to wow_optimize.dll within ~250ms via Lua globals. |
-| **UI Cache Stats** | `/lb` and `/lb gc` show DLL UI cache skip rate when wow_optimize.dll is active. |
-| **Smart ThrashGuard** | Auto-disables Lua-level StatusBar hooks when DLL is detected (DLL handles same methods at C level). |
-| **Tooltip Throttle Fix** | Same-target tooltip calls pass through immediately — fixes flickering in RaidRoll and similar addons. |
-| **Emergency GC Guard** | Emergency full GC skipped if current frame is already slow (>33ms) — prevents compounding lag spikes. |
-| **Table Pool Safety** | Tables with metatables are rejected from the pool — prevents __gc/__index issues on reuse. |
+| **Memory Leak Scanner** | `/lb memleak` — 30-second scan shows top 10 addons by memory growth rate. Color-coded severity. |
+| **DLL GC Timing** | `/lb gc` shows DLL's adaptive GC step time (smoothed average vs 2ms budget). |
+| **Adaptive GC Display** | When wow_optimize.dll v1.9.0+ adjusts step sizes, the timing is visible for tuning. |
+
+### Previous Highlights (v1.6.x)
+
+| Feature | Description |
+|---------|-------------|
+| **GC Step Sync** | Addon GUI controls DLL GC step sizes via Lua globals. |
+| **UI Cache Stats** | `/lb` and `/lb gc` show DLL UI cache skip rate. |
+| **Smart ThrashGuard** | Auto-disables when DLL detected. |
+| **Tooltip Fix** | Same-target calls pass through — no more flickering. |
+| **SetUnit removed** | Tooltip throttle for SetUnit removed — fixes Grid1 tooltips. |
 
 ### Previous Highlights (v1.5.x)
 
 | Feature | Description |
 |---------|-------------|
-| **Event Profiler** | `/lb events` — profiles all events for 10 seconds, shows top 15. |
-| **FPS Monitor** | `/lb fps` — 10-second capture with min/max/avg/1% low/stutter detection. |
-| **OnUpdate Dispatcher** | `LuaBoost_RegisterUpdate(id, interval, callback)` — shared throttled callbacks. |
-| **UI Thrashing Protection** | StatusBar metatable hooks — Lua-side fallback when DLL not present. |
-| **SpeedyLoad** | Event suppression during loading screens (safe/aggressive modes). |
+| **Event Profiler** | `/lb events` — 10-second event capture, top 15. |
+| **FPS Monitor** | `/lb fps` — min/max/avg/1% low/stutter detection. |
+| **OnUpdate Dispatcher** | Shared throttled callbacks API. |
+| **SpeedyLoad** | Event suppression during loading screens. |
 
 ---
 
@@ -50,41 +56,40 @@ See what other players say: [**Reviews & Testimonials**](https://github.com/supr
 
 ## ✅ Features
 
-### 🔄 GC Step Sync (NEW in v1.6.0)
+### 🔍 Memory Leak Scanner (NEW in v1.7.0)
 
-When wow_optimize.dll is installed, the addon writes GC step sizes to Lua globals on every settings change. The DLL reads them and applies automatically — no restart needed.
+Type `/lb memleak` to start a 30-second memory scan:
 
 ```
-Addon GUI slider → LUABOOST_ADDON_STEP_NORMAL → DLL reads → Config.normalStepKB
+[LuaBoost] Memory Growth (30 sec):
+  Recount                    +342 KB  (11.4 KB/sec)
+  DBM-Core                   +89 KB  (3.0 KB/sec)
+  Skada                      +45 KB  (1.5 KB/sec)
+  No significant memory growth detected.
 ```
 
-This means:
-- **One place to configure** — the addon GUI
-- **Zero Lua overhead** — DLL does the actual GC stepping from C
-- **Instant feedback** — changes apply within ~250ms
+Color-coded: 🟡 yellow (<2 KB/sec), 🟠 orange (2-10 KB/sec), 🔴 red (>10 KB/sec — likely leak).
 
-### 📊 UI Cache Stats (NEW in v1.6.0)
+### 🔄 GC Step Sync
 
-When the DLL is active, `/lb` and `/lb gc` display:
+When wow_optimize.dll is installed, slider changes propagate to DLL within ~250ms. With v1.9.0+ DLL, adaptive GC adjusts step sizes automatically — slider values serve as starting points.
+
+### 📊 UI Cache Stats
+
+When the DLL is active, `/lb` and `/lb gc` display skip rates and GC step timing:
 
 ```
   UI Cache: 72% skip (14523 skipped, 5621 passed)
+  DLL GC step: 0.84ms avg (budget: 2.0ms)
 ```
-
-### 🛡️ UI Thrashing Protection
-
-Hooks widget metatable methods globally and caches the last value. If the new value is identical, the engine call is skipped.
-
-**Auto-disabled when DLL is detected** — DLL hooks the same methods at C level (faster, taint-free). Shows "TG:DLL" in login message.
-
-**Hooked methods (when no DLL, 100% Taint-Free):**
-- `StatusBar:SetValue`
-- `StatusBar:SetMinMaxValues`
-- `StatusBar:SetStatusBarColor`
 
 ### 🎯 Tooltip Throttle
 
-Throttles `GameTooltip:SetUnit`, `SetSpell`, `SetHyperlink` to max 10 updates/sec **per target**. Same-target repeat calls always pass through — prevents flickering in RaidRoll and similar addons.
+Throttles `GameTooltip:SetSpell` and `SetHyperlink` to max 10/sec per target. Same-target repeats pass through immediately. SetUnit not throttled (fixes Grid1 tooltips).
+
+### 🛡️ UI Thrashing Protection
+
+StatusBar metatable hooks — auto-disabled when DLL detected. Lua-side fallback when no DLL.
 
 ### Safe Runtime Optimizations (automatic, always active)
 
@@ -108,17 +113,11 @@ Throttles `GameTooltip:SetUnit`, `SetSpell`, `SetHyperlink` to max 10 updates/se
 
 ### 📊 Event Profiler
 
-Type `/lb events` for 10-second event capture. Shows top 15 by frequency:
-- 🟡 Yellow: < 20/sec (normal)
-- 🟠 Orange: 20-50/sec (elevated)
-- 🔴 Red: > 50/sec (excessive)
+`/lb events` — 10-second event capture. Top 15 by frequency, color-coded.
 
 ### 📈 FPS Monitor
 
-Type `/lb fps` for 10-second frametime capture with:
-- Average, median, min, max FPS
-- 1% low FPS
-- Stutter detection (frames > 3× average)
+`/lb fps` — 10-second frametime capture with avg/median/min/max/1% low/stutter detection.
 
 ### 🔄 OnUpdate Dispatcher API
 
@@ -126,7 +125,6 @@ Type `/lb fps` for 10-second frametime capture with:
 LuaBoost_RegisterUpdate("MyAddon_Update", 0.1, function(now, elapsed)
     -- runs every 0.1 seconds
 end)
-
 LuaBoost_UnregisterUpdate("MyAddon_Update")
 LuaBoost_GetUpdateCount()
 ```
@@ -137,10 +135,10 @@ LuaBoost_GetUpdateCount()
 
 | Layer | Tool | What It Does |
 |-------|------|--------------|
-| **C / Engine** | [wow_optimize.dll](https://github.com/suprepupre/wow-optimize) | Faster memory, I/O, network, timers, Lua GC from C, combat log fix, UI widget cache (10 hooks) |
-| **Lua / Runtime** | **!LuaBoost** | GC step sync to DLL, SpeedyLoad, diagnostics, table pool, GUI |
+| **C / Engine** | [wow_optimize.dll](https://github.com/suprepupre/wow-optimize) | Faster memory, I/O, network, timers, adaptive GC from C, combat log fix, UI widget cache (10 hooks) |
+| **Lua / Runtime** | **!LuaBoost** | GC step sync, SpeedyLoad, memory leak scanner, diagnostics, table pool, GUI |
 
-> 💡 **With wow_optimize.dll v1.8.0+**: DLL handles all UI widget caching at C level and reads step sizes from LuaBoost GUI. ThrashGuard auto-disables. The addon provides settings, diagnostics, and non-UI optimizations.
+> 💡 **With wow_optimize.dll v1.9.0+**: DLL uses adaptive GC that auto-adjusts step sizes based on measured time. Addon sliders set the starting point — DLL tunes from there. ThrashGuard auto-disables.
 
 ---
 
@@ -159,7 +157,7 @@ Open settings: `ESC → Interface → AddOns → LuaBoost → GC Settings`
 | Emergency GC (MB) | 150 | 300 | 500 |
 | Idle Timeout (sec) | 15 | 15 | 20 |
 
-When wow_optimize.dll is installed, these values are synced to the DLL automatically.
+When wow_optimize.dll v1.9.0+ is installed, these values serve as starting points. The DLL will adapt them based on measured GC step time.
 
 ---
 
@@ -198,7 +196,7 @@ Interface/AddOns/!LuaBoost/
 | Command | Description |
 |---------|-------------|
 | `/lb` or `/luaboost` | Status overview + UI cache stats |
-| `/lb gc` | GC stats + DLL stats + UI cache stats |
+| `/lb gc` | GC stats + DLL stats + UI cache + GC timing |
 | `/lb pool` | Table pool stats |
 | `/lb toggle` | Enable/disable GC manager |
 | `/lb force` | Force full GC now |
@@ -210,6 +208,7 @@ Interface/AddOns/!LuaBoost/
 | `/lb tg reset` | Reset ThrashGuard counters |
 | `/lb events` | Profile events for 10 seconds |
 | `/lb fps` | FPS monitor for 10 seconds |
+| `/lb memleak` | Addon memory leak scanner (30 sec) |
 | `/lb updates` | Show registered update callbacks |
 | `/lb settings` | Open GC settings panel |
 | `/lb help` | Show all commands |
