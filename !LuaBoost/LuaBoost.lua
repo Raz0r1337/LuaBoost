@@ -42,7 +42,7 @@ end
 addonTable.L = L
 
 local ADDON_NAME    = "LuaBoost"
-local ADDON_VERSION = "1.6.0"
+local ADDON_VERSION = "1.7.0"
 local ADDON_COLOR   = "|cff00ccff"
 local VALUE_COLOR   = "|cffffff00"
 
@@ -1828,6 +1828,86 @@ local function ShowStatus()
     orig_print("  " .. VALUE_COLOR .. L["/lb help|r"])
 end
 
+-- ================================================================
+-- Memory Leak Scanner
+-- ================================================================
+
+local memLeakData = nil
+
+local function StartMemLeakScan()
+    if memLeakData then
+        Msg("Memory scan already in progress...")
+        return
+    end
+
+    orig_UpdateAddOnMemoryUsage()
+    local snap1 = {}
+    local numAddons = GetNumAddOns()
+    for i = 1, numAddons do
+        local name = GetAddOnInfo(i)
+        if name and IsAddOnLoaded(i) then
+            snap1[name] = orig_GetAddOnMemoryUsage(i)
+        end
+    end
+
+    memLeakData = {
+        snap1 = snap1,
+        startTime = orig_GetTime(),
+    }
+
+    Msg("Memory scan |cff00ff00STARTED|r — will report in 30 seconds. Play normally.")
+
+    LuaBoost_RegisterUpdate("LuaBoost_MemLeak", 1, function(now)
+        if not memLeakData then
+            LuaBoost_UnregisterUpdate("LuaBoost_MemLeak")
+            return
+        end
+        if (now - memLeakData.startTime) < 30 then return end
+
+        LuaBoost_UnregisterUpdate("LuaBoost_MemLeak")
+
+        orig_UpdateAddOnMemoryUsage()
+        local elapsed = now - memLeakData.startTime
+
+        local growth = {}
+        local numAddons = GetNumAddOns()
+        for i = 1, numAddons do
+            local name = GetAddOnInfo(i)
+            if name and IsAddOnLoaded(i) then
+                local mem2 = orig_GetAddOnMemoryUsage(i)
+                local mem1 = memLeakData.snap1[name] or 0
+                local delta = mem2 - mem1
+                if delta > 10 then
+                    growth[#growth + 1] = {
+                        name = name,
+                        delta = delta,
+                        rate = delta / elapsed,
+                    }
+                end
+            end
+        end
+
+        table.sort(growth, function(a, b) return a.delta > b.delta end)
+
+        orig_print(ADDON_COLOR .. orig_format("[LuaBoost]|r Memory Growth (%.0f sec):", elapsed))
+        local shown = 0
+        for i = 1, #growth do
+            if shown >= 10 then break end
+            local g = growth[i]
+            local color = g.rate > 10 and "|cffff4444" or
+                          g.rate > 2 and "|cffff8844" or "|cffffff00"
+            orig_print(orig_format("  %s%-25s|r  +%.0f KB  (%.1f KB/sec)",
+                color, g.name, g.delta, g.rate))
+            shown = shown + 1
+        end
+        if #growth == 0 then
+            orig_print("  |cff00ff00No significant memory growth detected.|r")
+        end
+
+        memLeakData = nil
+    end)
+end
+
 SLASH_LUABOOST1 = "/luaboost"
 SLASH_LUABOOST2 = "/lb"
 SlashCmdList["LUABOOST"] = function(input)
@@ -1850,6 +1930,10 @@ SlashCmdList["LUABOOST"] = function(input)
                 orig_print(orig_format(L["  DLL: mem=%.0fKB steps=%d full=%d mode=%s"],
                     mem or 0, steps or 0, fulls or 0, mode or L["?"]))
             end
+            local gcMs = _G.LUABOOST_DLL_GC_MS
+            if gcMs then
+                orig_print(orig_format("  DLL GC step: %.2fms avg (budget: 2.0ms)", gcMs))
+            end        
             if LuaBoostC_GetUIStats then
                 local sk, ps, active = LuaBoostC_GetUIStats()
                 if active then
@@ -1956,7 +2040,10 @@ SlashCmdList["LUABOOST"] = function(input)
         else
             StartEventProfiler()
         end
-    
+
+    elseif input == "memleak" then
+        StartMemLeakScan()
+        
     elseif input == "updates" then
         orig_print(ADDON_COLOR .. "[LuaBoost]|r OnUpdate Dispatcher:")
         orig_print(orig_format("  Registered callbacks: |cffffff00%d|r", updateCount))
@@ -1987,6 +2074,7 @@ SlashCmdList["LUABOOST"] = function(input)
         orig_print(L["  /lb updates      — show registered update callbacks"])
         orig_print(L["  /lb events       — profile events for 10 seconds"])   
         orig_print(L["  /lb fps          — FPS monitor for 10 seconds"])        
+        orig_print("  /lb memleak      — addon memory leak scanner (30 sec)")        
     else
         ShowStatus()
     end
