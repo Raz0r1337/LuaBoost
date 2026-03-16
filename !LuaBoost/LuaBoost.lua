@@ -195,8 +195,6 @@ end
 -- throttle to max 10/sec — imperceptible visually.
 
 local tooltipThrottleInterval = 0.1
-local lastTooltipUnitTime = 0
-local lastTooltipUnitArg = nil
 local lastTooltipSpellTime = 0
 local lastTooltipSpellArg = nil
 local lastTooltipItemTime = 0
@@ -205,21 +203,6 @@ local lastTooltipItemArg = nil
 do
     local gt = GameTooltip
     if gt then
-        local origSetUnit = gt.SetUnit
-        if origSetUnit then
-            gt.SetUnit = function(self, unit)
-                local now = cachedTime
-                if now == 0 then now = orig_GetTime() end
-                if unit == lastTooltipUnitArg then
-                    return origSetUnit(self, unit)
-                end
-                if (now - lastTooltipUnitTime) < tooltipThrottleInterval then return end
-                lastTooltipUnitTime = now
-                lastTooltipUnitArg = unit
-                return origSetUnit(self, unit)
-            end
-        end
-
         local origSetSpell = gt.SetSpell
         if origSetSpell then
             gt.SetSpell = function(self, id, bookType)
