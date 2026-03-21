@@ -42,7 +42,7 @@ end
 addonTable.L = L
 
 local ADDON_NAME    = "LuaBoost"
-local ADDON_VERSION = "1.8.0"
+local ADDON_VERSION = "1.8.1"
 local ADDON_COLOR   = "|cff00ccff"
 local VALUE_COLOR   = "|cffffff00"
 
@@ -2145,7 +2145,9 @@ local function OnPlayerLogin(event)
     end
 
     SpeedyLoad_HookUnregister()
-    SpeedyLoad_EnsurePriority()
+    if db.speedyLoadEnabled then
+        SpeedyLoad_EnsurePriority()
+    end
 
     -- Install UI Thrashing Protection
     if db.thrashGuardEnabled then
