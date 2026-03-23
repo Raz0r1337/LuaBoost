@@ -1809,7 +1809,15 @@ local function ShowStatus()
             local apiRate = apiTotal > 0 and (apiH / apiTotal * 100) or 0
             orig_print(orig_format("  API Cache: |cff00ff00%.0f%%|r hit (%d hits, %d misses)",
                 apiRate, apiH, apiM))
-        end           
+        end
+        if _G.LUABOOST_DLL_FASTPATH_ACTIVE then
+            local fpH = _G.LUABOOST_DLL_FASTPATH_HITS or 0
+            local fpF = _G.LUABOOST_DLL_FASTPATH_FALLBACKS or 0
+            local fpTotal = fpH + fpF
+            local fpRate = fpTotal > 0 and (fpH / fpTotal * 100) or 0
+            orig_print(orig_format("  Fast Path: |cff00ff00%.0f%%|r format (%d fast, %d fallback)",
+                fpRate, fpH, fpF))
+        end                
         if _G.LUABOOST_DLL_UICACHE_ACTIVE then
             local uiSk = _G.LUABOOST_DLL_UICACHE_SKIPPED or 0
             local uiPs = _G.LUABOOST_DLL_UICACHE_PASSED or 0
@@ -1971,7 +1979,16 @@ SlashCmdList["LUABOOST"] = function(input)
                     orig_print(orig_format("  DLL API Cache: %.0f%% hit (%d hits, %d misses)",
                         apiRate, apiH, apiM))
                 end
-            end                       
+            end
+            if LuaBoostC_GetFastPathStats then
+                local fpH, fpF, fpActive = LuaBoostC_GetFastPathStats()
+                if fpActive then
+                    local fpTotal = fpH + fpF
+                    local fpRate = fpTotal > 0 and (fpH / fpTotal * 100) or 0
+                    orig_print(orig_format("  DLL Fast Path: %.0f%% format (%d fast, %d fallback)",
+                        fpRate, fpH, fpF))
+                end
+            end                                  
         end
 
     elseif input == "pool" then
